@@ -641,6 +641,16 @@ function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
 
 // 2. Recommend Restaurants
 
+const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
+  "치킨": ["치킨", "닭강정", "후라이드", "양념치킨"],
+  "패스트푸드": ["버거", "샌드위치", "패스트푸드"],
+  "한식": ["한식", "백반", "국밥", "찌개", "한정식"],
+  "피자": ["피자", "화덕피자"],
+  "중식": ["중식", "짜장면", "짬뽕", "마라탕", "탕수육"],
+  "일식": ["일식", "초밥", "라멘", "돈까스", "우동"],
+  "양식": ["양식", "파스타", "스테이크", "브런치"]
+};
+
 function generateDynamicComment(rest: any, mbti: MuckBti, mealType: string): string {
   const cat = rest.category || "";
   
@@ -999,7 +1009,7 @@ JSON만 반환: [{"name":"식당명","comment":"코멘트"}]`;
         if (catMatches) score += 10; // 사용자가 명시적으로 고른 카테고리는 최우선
         else score -= 5; // 다른 카테고리는 페널티
       }
-      
+
       let matchCount = 0;
       const previews = rest.menu_preview;
 
