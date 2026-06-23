@@ -14,7 +14,7 @@ dotenv.config();
 console.log("KAKAO KEY LOADED:", process.env.KAKAO_REST_API_KEY);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
@@ -607,6 +607,24 @@ app.post("/api/geocode", async (req, res) => {
     address: `${query} (가까운 가상 미식구역)`
   });
 });
+
+function extractNeighborhood(addressText: string): string {
+  if (!addressText) return '서울';
+  
+  const cleaned = addressText.replace(/\(.*?\)/g, '').replace('인근', '').trim();
+  const words = cleaned.split(/\s+/);
+  
+  const neighborhoodWord = words.find(w => 
+    w.endsWith('동') || w.endsWith('역') || w.endsWith('가') || w.endsWith('길')
+  );
+  
+  if (neighborhoodWord) return neighborhoodWord;
+  
+  const guWord = words.find(w => w.endsWith('구'));
+  if (guWord) return guWord;
+  
+  return words[words.length - 1] || '서울';
+}
 
 // Helper to get menu keyword from MBTI
 function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
