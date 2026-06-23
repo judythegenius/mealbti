@@ -374,47 +374,7 @@ app.post("/api/reverse-geocode", async (req, res) => {
     }
   }
 
-  // Brand-new Intelligent Reverse-Geocoding with Gemini Fallback!
-  // This resolves the user issue where coordinates always snapped hardcoded to Seongsu-dong when Kakao map key was missing.
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      const ai = getAi();
-      const systemPrompt = `너는 대한민국 지리 정보 및 행정구역 공간 정보에 정통한 정교한 리버스 지오코더(Reverse Geocoder)이다.
-입력으로 주어지는 위도(latitude)와 경도(longitude) 값을 기준으로, 해당 위치에 부합하는 실제 정규 도로명 또는 지번 주소(예: "부산광역시 해운대구 우동 인근" 또는 "서울특별시 마포구 서교동 인근")를 추출하여 반환하라.
-반드시 아래의 정해진 JSON 형식으로만 응답해야 하며, 백틱(\`\`\`json)이나 다른 설명 텍스트를 절대로 덧붙이지 마라.
-
-[응답 포맷]
-{
-  "address": "추출한 정규 행정구역 구/동 단위 주소 이름"
-}`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `위도(latitude): ${latitude}, 경도(longitude): ${longitude}`,
-        config: {
-          systemInstruction: systemPrompt,
-          temperature: 0.1,
-          responseMimeType: "application/json"
-        }
-      });
-
-      const responseText = response.text;
-      if (responseText) {
-        const parsed = JSON.parse(responseText.trim());
-        if (parsed.address) {
-          return res.json({ address: parsed.address });
-        }
-      }
-    } catch (geoError: any) {
-      const isRateLimit = geoError?.message?.includes("429") || geoError?.status === "RESOURCE_EXHAUSTED" || JSON.stringify(geoError).includes("Quota exceeded");
-      if (isRateLimit) {
-        console.log("[Info] Gemini Reverse-Geocoding is rate-limited (429). Falling back to nearest offline coordinates map.");
-      } else {
-        console.log("[Info] Gemini reverse geocoding failed. Using nearest offline coordinates:", geoError?.message || geoError);
-      }
-    }
-  }
-
+  
   // Geographically intelligent local fallback to solve Seongsu pinning! Calculates nearest popular hotspot
   const closestSpot = findClosestOfflineHotspot(latNum, lonNum);
   res.json({ address: closestSpot.address });
@@ -555,7 +515,7 @@ app.post("/api/geocode", async (req, res) => {
 }`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: `검색어: ${query}`,
         config: {
           systemInstruction: systemPrompt,
@@ -898,7 +858,7 @@ console.log(`[Naver Search] ${rest.name} -> ${localData.items?.length || 0}개 �
 ]`;
 
       const geminiResponse = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-1.5-flash",
         contents: `식당 매핑 컨텍스트: ${JSON.stringify(contextPayload, null, 2)}`,
         config: {
           systemInstruction: systemPrompt,
