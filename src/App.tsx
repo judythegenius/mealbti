@@ -467,7 +467,7 @@ if (data.restaurants && data.restaurants.length > 0) {
               onSelectLocation={handleSelectCoordsOverride}
               onRequestGps={requestLocation}
               onTextSearchLocation={handleTextSearchLocation}
-
+/>
 
 
             {/* 오늘의 상황 변수 및 반경 조절 (Collapsible Context filters wrapper) */}
