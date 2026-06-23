@@ -11,16 +11,30 @@ interface RecommendationListProps {
   restaurants: RecommendedRestaurant[];
   isLoading: boolean;
   onExpandRadius: () => void;
-   onRefresh: () => void;  // 추가
+  onRefresh: () => void;
   radiusM: number;
+  selectedCategory: string | null;
+  onSelectCategory: (category: string | null) => void;
 }
+
+const QUICK_CATEGORIES = [
+  { label: "치킨", emoji: "🍗" },
+  { label: "패스트푸드", emoji: "🍔" },
+  { label: "한식", emoji: "🍚" },
+  { label: "피자", emoji: "🍕" },
+  { label: "중식", emoji: "🥡" },
+  { label: "일식", emoji: "🍣" },
+  { label: "양식", emoji: "🍝" },
+];
 
 export default function RecommendationList({
   restaurants,
   isLoading,
   onExpandRadius,
   onRefresh,
-  radiusM
+  radiusM,
+  selectedCategory,
+  onSelectCategory
 }: RecommendationListProps) {
   // Graceful background loading: if we already have items on screen, fade them to preserve focus and height!
   const hasItems = restaurants && restaurants.length > 0;
@@ -31,7 +45,7 @@ export default function RecommendationList({
         <div className="w-12 h-12 rounded-full border-4 border-[#e8f3ff] border-t-[#3182F6] animate-spin" />
         <div>
           <h3 className="text-base font-bold text-gray-850 tracking-tight">먹BTI 알고리즘 분석 중</h3>
-          <p className="text-xs text-gray-400 mt-1">실존 주변매장을 네이버 지도로 연동 중입니다...</p>
+          <p className="text-xs text-gray-400 mt-1">검증된 주변매장을 네이버 지도로 연동 중입니다...</p>
         </div>
       </div>
     );
@@ -74,6 +88,33 @@ export default function RecommendationList({
     return "🍽️";
   };
 
+  const categoryChips = (
+    <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" id="quick-category-chips">
+      {QUICK_CATEGORIES.map((c) => {
+        const active = selectedCategory === c.label;
+        return (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onSelectCategory(active ? null : c.label)}
+            className={`shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
+              active
+                ? "bg-[#3182F6] text-white border-[#3182F6]"
+                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            <span>{c.emoji}</span>
+            <span>{c.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="w-full flex flex-col gap-6" id="restaurants-container">
+      {categoryChips}
+      <div className="flex items-center justify-between px-1"></div>
   return (
     <div className="w-full flex flex-col gap-6" id="restaurants-container">
       <div className="flex items-center justify-between px-1">

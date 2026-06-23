@@ -26,6 +26,7 @@ export default function App() {
   const [yesterdayFoodInput, setYesterdayFoodInput] = useState<string>("");
   const [searchRadiusM, setSearchRadiusM] = useState<number>(3000);
   const [isFiltersExpanded, setIsFiltersExpanded] = useState<boolean>(false);
+ const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Position geolocations
   const [coordinates, setCoordinates] = useState<{ lat: number; lon: number } | null>(null);
@@ -155,7 +156,7 @@ const addSeenRestaurantsToday = (names: string[]) => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [coordinates, mbti, mealType, groupSize, yesterdayFood, searchRadiusM]);
+}, [coordinates, mbti, mealType, groupSize, yesterdayFood, searchRadiusM, selectedCategory]);
 
   // Map MBTI 1-5 distance coordinate to actual Kakao radius parameter (100m ~ 3000m)
   const mapDistanceToRadius = (dist: number): number => {
@@ -296,7 +297,8 @@ body: JSON.stringify({
   searchRadiusM,
   location_source: locationSource,
   addressText,
-  excludeNames: getSeenRestaurantsToday()
+  excludeNames: getSeenRestaurantsToday(),
+  categoryOverride: selectedCategory
 }),
       });
 
@@ -652,8 +654,10 @@ if (data.restaurants && data.restaurants.length > 0) {
               restaurants={restaurants}
               isLoading={isLoading}
               onExpandRadius={() => setSearchRadiusM(3000)}
-              onRefresh={fetchRecommendations}  // 추가
+              onRefresh={fetchRecommendations}
               radiusM={searchRadiusM}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
             />
           </div>
         )}

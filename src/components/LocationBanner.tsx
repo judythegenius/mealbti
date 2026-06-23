@@ -101,34 +101,34 @@ export default function LocationBanner({
     }
   };
 
-  if (isCollapsed) {
-    {locationSource === "ip_estimated" && (
-  <div className="text-[10px] text-amber-600 font-bold px-1 flex items-center gap-1">
-    <AlertTriangle className="w-3 h-3" /> IP 추정 위치 사용 중 — 검색으로 정확한 동네 지정 가능
-  </div>
-)}
+if (isCollapsed) {
     return (      
       <div className="w-full flex flex-col gap-2.5" id="location-banner-collapsed">
         <button
           type="button"
           onClick={() => setIsCollapsed(false)}
-          className="w-full bg-white rounded-[24px] p-4.5 border border-gray-150/50 shadow-sm flex items-center justify-between hover:bg-gray-50 active:scale-[0.99] transition-all text-left"
+          className="w-full bg-white rounded-[20px] p-3.5 border border-gray-150/50 shadow-sm flex items-center justify-between hover:bg-gray-50 active:scale-[0.99] transition-all text-left gap-3"
           id="expand-location-trigger"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-[#3182F6]" />
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-[#3182F6]" />
             </div>
-            <div>
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">추천 탐색 위치</h4>
-             <p className="text-sm font-semibold text-gray-400 mt-1 max-w-[200px] md:max-w-xs truncate">
-  {currentAddress || "동네·지역 검색 또는 GPS 위치"}
-</p>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">추천 탐색 위치</h4>
+              <p className="text-sm font-semibold text-gray-700 mt-0.5 truncate">
+                {currentAddress || "동네·지역 검색 또는 GPS 위치"}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-1 bg-[#F2F8FF] px-2.5 py-1.5 rounded-full text-xs font-bold text-[#3182F6]">
-            <span>위치 변경</span>
-            <ChevronDown className="w-3.5 h-3.5" />
+          {locationSource === "ip_estimated" && (
+            <span className="text-[9px] text-amber-600 font-bold flex items-center gap-0.5 shrink-0">
+              <AlertTriangle className="w-3 h-3" /> IP추정
+            </span>
+          )}
+          <div className="flex items-center gap-0.5 bg-[#F2F8FF] px-2 py-1 rounded-full text-[11px] font-bold text-[#3182F6] shrink-0 whitespace-nowrap">
+            <span>위치변경</span>
+            <ChevronDown className="w-3 h-3" />
           </div>
         </button>
       </div>
@@ -158,7 +158,7 @@ export default function LocationBanner({
       )}
 
       {/* Main Location selector control */}
-      <div className="bg-white rounded-[32px] p-5 border border-gray-150/50 shadow-sm flex flex-col gap-3 relative">
+      <div className="bg-white rounded-[32px] p-4 border border-gray-150/50 shadow-sm flex flex-col gap-3 relative">
         <div className="flex justify-between items-center pb-2 border-b border-gray-100/60">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-[#3182F6] shrink-0" />

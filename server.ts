@@ -673,7 +673,7 @@ function generateDynamicComment(rest: any, mbti: MuckBti, mealType: string): str
 }
 
 app.post("/api/recommend", async (req, res) => {
-  const { muckBti, latitude, longitude, groupSize, yesterdayFood, searchRadiusM, addressText, excludeNames } = req.body;
+const { muckBti, latitude, longitude, groupSize, yesterdayFood, searchRadiusM, addressText, excludeNames, categoryOverride } = req.body;
 
   // Coordinate guards
   if (!latitude || !longitude) {
@@ -699,8 +699,22 @@ app.post("/api/recommend", async (req, res) => {
     detectedMealType = "야식";
   }
 
+  
 // 1. Determine Target Keywords - search MULTIPLE categories instead of just one!
-const menuKeywords = getMenuKeywordsFromMBTI(muckBti);
+const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
+  "치킨": ["치킨", "닭강정", "후라이드", "양념치킨"],
+  "패스트푸드": ["버거", "피자", "샌드위치", "패스트푸드"],
+  "한식": ["한식", "백반", "국밥", "찌개", "한정식"],
+  "피자": ["피자", "화덕피자"],
+  "중식": ["중식", "짜장면", "짬뽕", "마라탕", "탕수육"],
+  "일식": ["일식", "초밥", "라멘", "돈까스", "우동"],
+  "양식": ["양식", "파스타", "스테이크", "브런치"]
+};
+
+const menuKeywords = categoryOverride && CATEGORY_KEYWORD_MAP[categoryOverride]
+  ? CATEGORY_KEYWORD_MAP[categoryOverride]
+  : getMenuKeywordsFromMBTI(muckBti);
+
 const locationPrefix = extractNeighborhood(addressText);
 
 let rawNearby: Restaurant[] = [];
@@ -712,21 +726,23 @@ if (kakaoApiKey && kakaoApiKey !== 'your_kakao_rest_api_key_here') {
     // Search ALL menu keywords in parallel and merge results for category diversity
     const searchPromises = menuKeywords.map(async (keyword) => {
       const searchQuery = `${locationPrefix} ${keyword}`;
-      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&x=${longitude}&y=${latitude}&radius=${radius}&size=8`;
+      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&x=${longitude}&y=${latitude}&radius=${radius}&size=8&category_group_code=FD6`;
       const response = await fetch(url, { headers: { Authorization: `KakaoAK ${kakaoApiKey}` } });
       const data: any = await response.json();
-      if (data.documents && data.documents.length > 0) {
-        return data.documents.map((doc: any) => ({
-          name: doc.place_name,
-          category: doc.category_name,
-          distance_meters: parseInt(doc.distance) || Math.floor(Math.random()*radius),
-          address: doc.road_address_name || doc.address_name,
-          menu_preview: [doc.category_name.split(' > ').pop() || keyword],
-          kakao_url: doc.place_url,
-          x: doc.x,
-          y: doc.y
-        }));
-      }
+     if (data.documents && data.documents.length > 0) {
+  return data.documents
+    .filter((doc: any) => doc.category_group_code === 'FD6' || doc.category_name.includes('음식점'))
+    .map((doc: any) => ({
+      name: doc.place_name,
+      category: doc.category_name,
+      distance_meters: parseInt(doc.distance) || Math.floor(Math.random()*radius),
+      address: doc.road_address_name || doc.address_name,
+      menu_preview: [doc.category_name.split(' > ').pop() || keyword],
+      kakao_url: doc.place_url,
+      x: doc.x,
+      y: doc.y
+    }));
+}
       return [];
     });
 
@@ -888,7 +904,7 @@ JSON만 반환: [{"name":"식당명","comment":"코멘트"}]`;
 유저의 개인 먹BTI 성향, 어제 식사 메뉴, 그리고 현재 설정 범위 주소를 반영해 최적의 맛집 3곳을 엄선해야 한다.
 
 [큐레이션 핵심 규칙]
-1. 실존 식당 추천 (매우 중요):
+1. 검증된 식당 추천 (매우 중요):
    - 'is_demo_mode'가 true인 경우, 제공된 'raw_nearby_restaurants' 목록은 강남역 중심의 임의 연습용 목록이므로 완전히 무시하십시오.
    - 대신 유저의 현재 텍스트 주소인 '${req.body.addressText || "서울시"}' 지역에 실제로 활발히 영업 중이며 네 식 상식 데이터상 100% 존재하는 "진짜 동네 맛집" 3곳을 새롭게 구체화하십시오. 가짜 식당이나 가짜 가상 식당명을 지어내서는 절대 안 되며, 실제 네이버나 카카오맵에 상호명과 매장명으로 검색하여 도로명 주소가 똑떨어지게 조회되는 맛집들로 엄선해야 합니다. 이 때, 각각 "category" 및 실제 "address" 주소도 반드시 응답 구조에 채워 넣어야 합니다.
    - 'is_demo_mode'가 false인 경우에는 제공된 'raw_nearby_restaurants' 목록 내에 존재하는 진짜 식당 중에서 골라야 합니다.
@@ -904,7 +920,7 @@ JSON만 반환: [{"name":"식당명","comment":"코멘트"}]`;
   {
     "name": "실제 상호명 및 구체적 지점명 (예: '망원동 소금집하우스' 혹은 '해운대 소문난암소갈비')",
     "category": "음식 분류명 (예: '양식 > 샌드위치' 혹은 '한식 > 소고기구이')",
-    "address": "실제 해당 점포의 실존 한글 도로명/지번 주소 (예: '부산 해운대구 중동2로10번길 32-10')",
+    "address": "실제 해당 점포의 검증된 한글 도로명/지번 주소 (예: '부산 해운대구 중동2로10번길 32-10')",
     "recommended_menu": "식당의 대표 시그니처 메뉴명 (예: '한우 암소 갈비')",
     "toss_comment": "토스 특유의 위트 넘치고 친밀한 응원체 맛집 추천 멘트"
   }
@@ -977,6 +993,13 @@ JSON만 반환: [{"name":"식당명","comment":"코멘트"}]`;
       }
 
       // 2. 먹BTI keyword count with menu_preview matching (weight x 3)
+      if (categoryOverride) {
+        const catKeywords = CATEGORY_KEYWORD_MAP[categoryOverride] || [categoryOverride];
+        const catMatches = catKeywords.some(k => rest.category.includes(k) || rest.name.includes(k));
+        if (catMatches) score += 10; // 사용자가 명시적으로 고른 카테고리는 최우선
+        else score -= 5; // 다른 카테고리는 페널티
+      }
+      
       let matchCount = 0;
       const previews = rest.menu_preview;
 
@@ -1047,7 +1070,7 @@ if (muckBti.salty >= 4) {
     // Sort descending by score, filter out exclusion (-999), and take top 3
     const sortedCandidates = scored
   .filter(item => item.score > -100)
-  .sort((a, b) => b.score - a.score);
+.sort((a, b) => b.score === a.score ? Math.random() - 0.5 : b.score - a.score);
 
 const filteredAndSorted: typeof sortedCandidates = [];
 const usedCategories = new Set<string>();
@@ -1076,7 +1099,7 @@ if (filteredAndSorted.length < 3) {
     const categoryLeaf = rest.category.split(" > ").pop() || "";
 const isGenericMenu = !rest.menu_preview[0] || rest.menu_preview[0] === categoryLeaf || rest.menu_preview[0].length < 3;
 let defaultMenu = isGenericMenu ? "오늘의 추천 메뉴" : rest.menu_preview[0];
-      let comment = "오늘 설정한 당신의 먹BTI 식성 성향에 쏙 알맞아 적극 추천드리는 실존 매장이에요.";
+      let comment = "오늘 설정한 당신의 먹BTI 식성 성향에 쏙 알맞아 적극 추천드리는 검증된 매장이에요.";
 
       if (rest.category.includes("고기") || rest.category.includes("갈비")) {
         comment = "힘 빠지는 요지경 하루, 든든한 육즙으로 충전해 마음까지 포동하게 녹여보세요.";
@@ -1107,7 +1130,7 @@ let defaultMenu = isGenericMenu ? "오늘의 추천 메뉴" : rest.menu_preview[
     const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null };
 
     // Select actual address & categories from Gemini fallback or local cache
-    const finalAddress = cur.address || (original ? original.address : `${req.body.addressText || "지정 구역"} 인근 실존 매장`);
+    const finalAddress = cur.address || (original ? original.address : `${req.body.addressText || "지정 구역"} 인근 검증된 매장`);
     const finalCategory = cur.category || (original ? (original.category.split(" > ").pop() || original.category) : "일반 음식점");
     const finalName = cur.name;
     const finalMenu = cur.recommended_menu;
