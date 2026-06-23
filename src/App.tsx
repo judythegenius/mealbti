@@ -24,7 +24,7 @@ export default function App() {
   const [groupSize, setGroupSize] = useState<"1인" | "2~3인" | "4인이상">("1인");
   const [yesterdayFood, setYesterdayFood] = useState<string>("");
   const [yesterdayFoodInput, setYesterdayFoodInput] = useState<string>("");
-  const [searchRadiusM, setSearchRadiusM] = useState<number>(1000);
+  const [searchRadiusM, setSearchRadiusM] = useState<number>(3000);
   const [isFiltersExpanded, setIsFiltersExpanded] = useState<boolean>(false);
 
   // Position geolocations

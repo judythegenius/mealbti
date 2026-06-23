@@ -908,12 +908,13 @@ JSON만 반환: [{"name":"식당명","comment":"코멘트"}]`;
   }
 ]`;
 
-      const geminiResponse = await ai.models.generateContent({
+      try {
+        const geminiResponse = await ai.models.generateContent({
         model: "gemini-1.5-flash",
         contents: `식당 매핑 컨텍스트: ${JSON.stringify(contextPayload, null, 2)}`,
         config: {
           systemInstruction: systemPrompt,
-          temperature: 0.2,
+          temperature: 0.7,
           responseMimeType: "application/json"
         }
       });

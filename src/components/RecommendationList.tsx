@@ -160,7 +160,7 @@ export default function RecommendationList({
                 <div className="flex gap-2">
                   <span className="text-[#3182F6] text-xs font-bold bg-[#e8f3ff] w-5 h-5 rounded-md flex items-center justify-center font-mono shrink-0 select-none">Q</span>
                   <p className="text-[13px] text-[#333D4B] font-bold leading-normal truncate">
-                    추천 한입: <span className="text-[#3182F6] font-extrabold">{rest.recommended_menu}</span>
+                    추천 메뉴: <span className="text-[#3182F6] font-extrabold">{rest.recommended_menu}</span>
                   </p>
                 </div>
                 <p className="text-[13px] text-gray-600 leading-relaxed font-normal mt-2 pl-7 border-l-2 border-blue-150">
