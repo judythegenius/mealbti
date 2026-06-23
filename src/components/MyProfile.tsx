@@ -34,9 +34,8 @@ export default function MyProfile({ initialMbti, onUpdate }: MyProfileProps) {
   const nodes: SliderNode[] = [
     { key: "spicy", label: "🌶️ 맵기 선호 강도", emoji: "🌶️", minLabel: "순한맛", maxLabel: "지옥불핫" },
     { key: "fullness", label: "🍚 포만감 규모", emoji: "🍚", minLabel: "가볍게", maxLabel: "든든배불" },
-    { key: "budget", label: "💰 한끼 지출 기조", emoji: "💰", minLabel: "실속형", maxLabel: "플렉스" },
-    { key: "distance", label: "🚶 탐방 가능 거리", emoji: "🚶", minLabel: "문 앞(3분)", maxLabel: "어디든(15분)" },
-    { key: "speed", label: "⏱️ 식사 속도/여류", emoji: "⏱️", minLabel: "신속히", maxLabel: "티타임여유" },
+    { key: "speed", label: "⏱️ 식사 속도/여유", emoji: "⏱️", minLabel: "신속히", maxLabel: "티타임여유" },
+    { key: "salty", label: "🧂 짠맛 선호 강도", emoji: "🧂", minLabel: "슴슴하게", maxLabel: "짭짤하게" },
     { key: "drink", label: "🍻 가벼운 반주 빈도", emoji: "🍻", minLabel: "보리밥파", maxLabel: "소주가친구" }
   ];
 

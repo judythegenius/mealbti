@@ -7,7 +7,7 @@ export interface MuckBti {
   fullness: number;   // 1 (가볍게 한끼) ~ 5 (든든하게 배부르게)
   speed: number;      // 1 (빠르게 해치움) ~ 5 (여유롭게 즐김)
   salty: number; // 1 = 슴슴/덜짠, 5 = 짠 자극적
-    spicy: number;      // 1 (순한맛) ~ 5 (지옥불맛)
+  spicy: number;      // 1 (순한맛) ~ 5 (지옥불맛)
   drink: number;      // 1 (거의 안 마심) ~ 5 (자주 곁들임)
   health: "none" | "loss" | "gain" | "sugar";
 }

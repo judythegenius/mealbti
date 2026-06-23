@@ -26,8 +26,7 @@ export default function MuckBtiTest({ onComplete }: MuckBtiTestProps) {
   const [mbti, setMbti] = useState<MuckBti>({
     spicy: 3,
     fullness: 3,
-    budget: 3,
-    distance: 3,
+    salty: 3,
     speed: 3,
     drink: 3,
     health: "none",
@@ -51,24 +50,6 @@ export default function MuckBtiTest({ onComplete }: MuckBtiTestProps) {
       minLabel: "가볍게 한 끼 (깔끔한 아쉬움)",
       maxLabel: "든든하게 배부르게 (두둑한 배부름)",
       icon: <Utensils className="w-5 h-5 text-amber-500" />
-    },
-    {
-      key: "budget",
-      title: "💰 예산 성향",
-      emoji: "💰",
-      sub: "평소 요리를 대할 때 중요시하는 예산 기조는 어디에 가깝나요?",
-      minLabel: "실속 가성비 (최강 알뜰식)",
-      maxLabel: "플렉스 (맛있다면 가격 무관)",
-      icon: <Coins className="w-5 h-5 text-yellow-500" />
-    },
-    {
-      key: "distance",
-      title: "🚶 이동 가능 거리",
-      emoji: "🚶",
-      sub: "식사 장소까지 흔쾌히 걸어갈 수 있는 최대 한계선은?",
-      minLabel: "바로 앞인 곳 (도보 3분 이내)",
-      maxLabel: "어디든 맛만 있다면 (도보 15분 이상)",
-      icon: <MapPin className="w-5 h-5 text-blue-500" />
     },
     {
       key: "speed",
