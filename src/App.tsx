@@ -445,7 +445,15 @@ if (data.restaurants && data.restaurants.length > 0) {
               <p className="text-xs text-gray-400 mt-1">재검사 없이 실시간 성향과 기조를 바꿉니다.</p>
             </div>
             <MyProfile initialMbti={mbti} onUpdate={handleProfileUpdate} />
-          </div>
+          {/* 재검사 버튼 추가 */}
+    <button
+      type="button"
+      onClick={() => setTab("test")}
+      className="w-full mt-4 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-xs rounded-2xl transition-all"
+    >
+      처음부터 다시 검사하기
+    </button>
+  </div>
         )}
 
         {/* TAB 5: HERO RECOMMENDATION RESULTS (Core view) */}
@@ -459,29 +467,8 @@ if (data.restaurants && data.restaurants.length > 0) {
               onSelectLocation={handleSelectCoordsOverride}
               onRequestGps={requestLocation}
               onTextSearchLocation={handleTextSearchLocation}
-            />
 
-            {/* GPS Debugging info card to clearly guide sandbox frame limits */}
-            {(gpsStatus === "denied" || gpsStatus === "timeout" || locationSource === "ip_estimated") && (
-              <div className="bg-[#EBF4FF] rounded-[24px] p-4.5 border border-[#3182F6]/20 flex flex-col gap-2.5 animate-fade-in select-none" id="gps-assistance-box">
-                <div className="flex items-center gap-2 text-[#1B64DA] font-bold text-xs">
-                  <AlertCircle className="w-4 h-4 text-[#3182F6]" />
-                  <span>📍 GPS 위치 수집 상세 가이드</span>
-                </div>
-                <p className="text-[11px] text-blue-900/80 leading-relaxed font-semibold">
-                  현재 보안 프레임(iFrame) 미리보기 정책으로 브라우저에 따라 기기 자체 GPS 획득이 일시 제한되었을 수 있습니다.
-                </p>
-                <div className="bg-white/80 rounded-[16px] p-3 border border-blue-100 flex flex-col gap-1.5 text-[10.5px]">
-                  <div className="text-gray-800 font-bold">💡 두 가지 빠른 추천 방법:</div>
-                  <div className="text-gray-600 leading-normal pl-1 font-medium">
-                    1. 위의 주소 입력창에 <b>'망원동'</b>, <b>'해운대역'</b>, <b>'여의도역'</b>, <b>'판교역'</b> 등을 치시면 즉시 100% 그 동네 실제 주소 매장들로 정비되어 완벽하게 추천됩니다!
-                  </div>
-                  <div className="text-gray-600 leading-normal pl-1 font-medium mt-1">
-                    2. 서비스 우측 상단 <b>'새 창에서 보기 (Open in New Tab)'</b> 단추를 누르면 브라우저 샌드박스가 풀려 폰 자체 기기 GPS 신호가 한 번에 정상 수집됩니다!
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             {/* 오늘의 상황 변수 및 반경 조절 (Collapsible Context filters wrapper) */}
             {!isFiltersExpanded ? (
@@ -660,25 +647,12 @@ if (data.restaurants && data.restaurants.length > 0) {
               </div>
             )}
 
-            {/* Touch-Friendly Manual Re-curation Button block */}
-            <div className="flex items-center justify-between bg-white/70 rounded-[20px] px-4 py-2.5 border border-gray-150/50 shadow-xs shrink-0 select-none" id="manual-refresh-bar">
-              <span className="text-xs font-bold text-[#4E5968]">검색 조건을 변경하셨나요?</span>
-              <button
-                type="button"
-                onClick={() => fetchRecommendations()}
-                disabled={isLoading}
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#3182F6] hover:bg-[#1b64da] disabled:bg-gray-300 active:scale-95 px-4.5 py-2 rounded-full shadow-sm transition-all cursor-pointer select-none"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-                <span>다시 검색하기</span>
-              </button>
-            </div>
-
             {/* Recommendations List and card representations */}
             <RecommendationList
               restaurants={restaurants}
               isLoading={isLoading}
               onExpandRadius={() => setSearchRadiusM(3000)}
+              onRefresh={fetchRecommendations}  // 추가
               radiusM={searchRadiusM}
             />
           </div>
@@ -723,18 +697,7 @@ if (data.restaurants && data.restaurants.length > 0) {
             <Sliders className={`w-5 h-5 ${tab === "profile" ? "stroke-[2.5px]" : ""}`} />
             <span className="text-[10px] font-bold font-sans">성향 조절 (My)</span>
           </button>
-
-          <button
-            type="button"
-            id="nav-tab-test"
-            onClick={() => setTab("test")}
-            className={`flex flex-col items-center gap-1.5 transition-all text-center shrink-0 cursor-pointer ${
-              tab === "test" || tab === "resultCard" ? "text-[#3182F6]" : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Award className={`w-5 h-5 ${tab === "test" || tab === "resultCard" ? "stroke-[2.5px]" : ""}`} />
-            <span className="text-[10px] font-bold font-sans">성향 검사</span>
-          </button>
+          
         </nav>
       )}
     </div>

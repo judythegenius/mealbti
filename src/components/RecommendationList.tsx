@@ -11,6 +11,7 @@ interface RecommendationListProps {
   restaurants: RecommendedRestaurant[];
   isLoading: boolean;
   onExpandRadius: () => void;
+   onRefresh: () => void;  // 추가
   radiusM: number;
 }
 
@@ -18,6 +19,7 @@ export default function RecommendationList({
   restaurants,
   isLoading,
   onExpandRadius,
+  onRefresh,
   radiusM
 }: RecommendationListProps) {
   // Graceful background loading: if we already have items on screen, fade them to preserve focus and height!
@@ -83,7 +85,15 @@ export default function RecommendationList({
             </span>
           )}
         </h2>
-        <span className="text-[10px] text-gray-400 font-semibold font-mono tracking-wide">ACTUAL PLACES</span>
+       <button
+  type="button"
+  onClick={onRefresh}
+  disabled={isLoading}
+  className="flex items-center gap-1 text-[10px] text-[#3182F6] font-bold disabled:text-gray-300 cursor-pointer transition-all"
+>
+  <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
+  <span>다시 검색</span>
+</button>
       </div>
 
       <div className={`flex flex-col gap-4 transition-all duration-300 ${isLoading ? "opacity-40 pointer-events-none scale-[0.995]" : "opacity-100"}`}>

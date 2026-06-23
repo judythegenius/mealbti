@@ -41,7 +41,7 @@ export default function LocationBanner({
   const [textQuery, setTextQuery] = useState<string>("");
   const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState<boolean>(false);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
@@ -102,7 +102,12 @@ export default function LocationBanner({
   };
 
   if (isCollapsed) {
-    return (
+    {locationSource === "ip_estimated" && (
+  <div className="text-[10px] text-amber-600 font-bold px-1 flex items-center gap-1">
+    <AlertTriangle className="w-3 h-3" /> IP 추정 위치 사용 중 — 검색으로 정확한 동네 지정 가능
+  </div>
+)}
+    return (      
       <div className="w-full flex flex-col gap-2.5" id="location-banner-collapsed">
         <button
           type="button"
@@ -116,9 +121,9 @@ export default function LocationBanner({
             </div>
             <div>
               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">추천 탐색 위치</h4>
-              <p className="text-sm font-extrabold text-[#333D4B] mt-1 max-w-[200px] md:max-w-xs truncate">
-                {currentAddress || "전국 맛집 탐색 중"}
-              </p>
+             <p className="text-sm font-semibold text-gray-400 mt-1 max-w-[200px] md:max-w-xs truncate">
+  {currentAddress || "동네·지역 검색 또는 GPS 위치"}
+</p>
             </div>
           </div>
           <div className="flex items-center gap-1 bg-[#F2F8FF] px-2.5 py-1.5 rounded-full text-xs font-bold text-[#3182F6]">
