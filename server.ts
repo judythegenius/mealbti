@@ -846,6 +846,8 @@ console.log(`[Naver Search] ${rest.name} -> ${localData.items?.length || 0}개 �
   }[] = [];
   let recSource: "gemini" | "fallback" = "fallback";
 
+const geminiAvailable = !!process.env.GEMINI_API_KEY;
+
 // 식당 선정은 fallback 스코어링으로 먼저 확정
 // (기존 fallback 로직 그대로 실행해서 filteredAndSorted 확보)
 
