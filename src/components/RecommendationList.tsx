@@ -5,7 +5,7 @@
 
 import React from "react";
 import { RecommendedRestaurant } from "../types";
-import { ExternalLink, Star, Footprints, AlertTriangle, RefreshCw, Compass, ArrowRight } from "lucide-react";
+import { ExternalLink, Star, Footprints, RefreshCw, Compass, ArrowRight } from "lucide-react";
 
 interface RecommendationListProps {
   restaurants: RecommendedRestaurant[];
@@ -13,30 +13,15 @@ interface RecommendationListProps {
   onExpandRadius: () => void;
   onRefresh: () => void;
   radiusM: number;
-  selectedCategory: string | null;
-  onSelectCategory: (category: string | null) => void;
 }
-
-const QUICK_CATEGORIES = [
-  { label: "치킨", emoji: "🍗" },
-  { label: "패스트푸드", emoji: "🍔" },
-  { label: "한식", emoji: "🍚" },
-  { label: "피자", emoji: "🍕" },
-  { label: "중식", emoji: "🥡" },
-  { label: "일식", emoji: "🍣" },
-  { label: "양식", emoji: "🍝" },
-];
 
 export default function RecommendationList({
   restaurants,
   isLoading,
   onExpandRadius,
   onRefresh,
-  radiusM,
-  selectedCategory,
-  onSelectCategory
+  radiusM
 }: RecommendationListProps) {
-  // Graceful background loading: if we already have items on screen, fade them to preserve focus and height!
   const hasItems = restaurants && restaurants.length > 0;
 
   if (isLoading && !hasItems) {
@@ -45,13 +30,12 @@ export default function RecommendationList({
         <div className="w-12 h-12 rounded-full border-4 border-[#e8f3ff] border-t-[#3182F6] animate-spin" />
         <div>
           <h3 className="text-base font-bold text-gray-850 tracking-tight">먹BTI 알고리즘 분석 중</h3>
-          <p className="text-xs text-gray-400 mt-1">검증된 주변매장을 네이버 지도로 연동 중입니다...</p>
+          <p className="text-xs text-gray-400 mt-1">실존 주변매장을 네이버 지도로 연동 중입니다...</p>
         </div>
       </div>
     );
   }
 
-  // Zero-state condition
   if (!isLoading && restaurants.length === 0) {
     return (
       <div className="w-full bg-white border border-gray-150 rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-4 animate-fade-in" id="empty-restaurants-panel">
@@ -74,47 +58,6 @@ export default function RecommendationList({
     );
   }
 
-  const getCategoryEmoji = (category: string) => {
-    const term = category.toLowerCase();
-    if (term.includes("한식") || term.includes("두부") || term.includes("국밥") || term.includes("설렁탕")) return "🍲";
-    if (term.includes("고기") || term.includes("삼겹살") || term.includes("갈비")) return "🥩";
-    if (term.includes("일식") || term.includes("돈까스") || term.includes("초밥") || term.includes("스시")) return "🍣";
-    if (term.includes("양식") || term.includes("파스타") || term.includes("피자")) return "🍝";
-    if (term.includes("중식") || term.includes("마라") || term.includes("짜장")) return "🥡";
-    if (term.includes("베트남") || term.includes("아시아")) return "🍜";
-    if (term.includes("샐러드") || term.includes("다이어트")) return "🥗";
-    if (term.includes("안주") || term.includes("맥주") || term.includes("술집")) return "🍺";
-    if (term.includes("카페") || term.includes("디저트") || term.includes("브런치")) return "☕";
-    return "🍽️";
-  };
-
-  const categoryChips = (
-    <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" id="quick-category-chips">
-      {QUICK_CATEGORIES.map((c) => {
-        const active = selectedCategory === c.label;
-        return (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => onSelectCategory(active ? null : c.label)}
-            className={`shrink-0 flex items-center gap-1 px-3 py-2 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
-              active
-                ? "bg-[#3182F6] text-white border-[#3182F6]"
-                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            <span>{c.emoji}</span>
-            <span>{c.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  return (
-    <div className="w-full flex flex-col gap-6" id="restaurants-container">
-      {categoryChips}
-      <div className="flex items-center justify-between px-1"></div>
   return (
     <div className="w-full flex flex-col gap-6" id="restaurants-container">
       <div className="flex items-center justify-between px-1">
@@ -126,21 +69,19 @@ export default function RecommendationList({
             </span>
           )}
         </h2>
-       <button
-  type="button"
-  onClick={onRefresh}
-  disabled={isLoading}
-  className="flex items-center gap-1 text-[10px] text-[#3182F6] font-bold disabled:text-gray-300 cursor-pointer transition-all"
->
-  <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
-  <span>다시 검색</span>
-</button>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="flex items-center gap-1 text-[10px] text-[#3182F6] font-bold disabled:text-gray-300 cursor-pointer transition-all"
+        >
+          <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
+          <span>다시 검색</span>
+        </button>
       </div>
 
       <div className={`flex flex-col gap-4 transition-all duration-300 ${isLoading ? "opacity-40 pointer-events-none scale-[0.995]" : "opacity-100"}`}>
         {restaurants.map((rest, index) => {
-          const categoryEmoji = getCategoryEmoji(rest.category);
-          
           return (
             <div
               key={rest.name}
@@ -148,7 +89,6 @@ export default function RecommendationList({
               className="bg-white rounded-[32px] p-5.5 border border-gray-150/50 shadow-sm flex flex-col gap-4 hover:shadow-md transition-all duration-200 animate-fade-in"
               style={{ animationDelay: `${index * 0.15}s` }}
             >
-              {/* Header section of card: Title, Category, Rating */}
               <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -171,7 +111,6 @@ export default function RecommendationList({
                   </h3>
                 </div>
 
-                {/* Big Walk distance minutes highlights */}
                 <div className="text-right shrink-0 flex flex-col items-end" id={`distance-indicator-${rest.name}`}>
                   <span className="text-[20px] font-extrabold text-[#3182F6] tracking-tighter leading-none flex items-baseline gap-0.5">
                     {rest.walk_min}
@@ -183,20 +122,18 @@ export default function RecommendationList({
                 </div>
               </div>
 
-              {/* Photo Display - only shown when verified by Naver, otherwise section is omitted entirely */}
-{rest.verified_photo_url && (
-  <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
-    <img
-      src={rest.verified_photo_url}
-      alt={rest.name}
-      id={`photo-${rest.name}`}
-      referrerPolicy="no-referrer"
-      className="w-full h-full object-cover transition-transform hover:scale-105"
-    />
-  </div>
-)}
+              {rest.verified_photo_url && (
+                <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
+                  <img
+                    src={rest.verified_photo_url}
+                    alt={rest.name}
+                    id={`photo-${rest.name}`}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover transition-transform hover:scale-105"
+                  />
+                </div>
+              )}
 
-              {/* Toss specific funny commentary of recommendation reasons */}
               <div className="bg-[#F4F9FF] p-4.5 rounded-[20px] border border-blue-100/30">
                 <div className="flex gap-2">
                   <span className="text-[#3182F6] text-xs font-bold bg-[#e8f3ff] w-5 h-5 rounded-md flex items-center justify-center font-mono shrink-0 select-none">Q</span>
@@ -209,12 +146,10 @@ export default function RecommendationList({
                 </p>
               </div>
 
-              {/* Exact physical address */}
-              <div className="text-[11px] text-gray-400 font-medium leading-relaxed font-sans px-1 font-sans">
+              <div className="text-[11px] text-gray-400 font-medium leading-relaxed font-sans px-1">
                 📍 {rest.address}
               </div>
 
-              {/* Map viewing CTA buttons */}
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <a
                   href={rest.kakao_url}
