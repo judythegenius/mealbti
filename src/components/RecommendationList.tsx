@@ -210,22 +210,10 @@ export default function RecommendationList({
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-1">
-                
-                  href={rest.kakao_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  id={`kakao-map-link-${rest.name}`}
-                  className="py-3 px-3 bg-[#FCF8E3] hover:bg-[#FBEED5] text-yellow-900 font-bold text-xs rounded-[16px] border border-yellow-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none"
-                >
+                <a href={rest.kakao_url} target="_blank" rel="noopener noreferrer" id={`kakao-map-link-${rest.name}`} className="py-3 px-3 bg-[#FCF8E3] hover:bg-[#FBEED5] text-yellow-900 font-bold text-xs rounded-[16px] border border-yellow-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
                   카카오맵으로 후기보기 <ExternalLink className="w-3.5 h-3.5" />
                 </a>
-                
-                  href={rest.naver_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  id={`naver-map-link-${rest.name}`}
-                  className="py-3 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-emerald-900 font-bold text-xs rounded-[16px] border border-emerald-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none"
-                >
+                <a href={rest.naver_url} target="_blank" rel="noopener noreferrer" id={`naver-map-link-${rest.name}`} className="py-3 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-emerald-900 font-bold text-xs rounded-[16px] border border-emerald-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
                   네이버지도 정보보기 <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
