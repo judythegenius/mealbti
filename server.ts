@@ -346,6 +346,7 @@ function findOfflineGeocode(query: string): { lat: number; lon: number; address:
 // API Routes FIRST
 
 app.post("/api/recommend", async (req, res) => {
+  console.log("API /api/recommend called");
   const {
     muckBti, latitude, longitude, groupSize, yesterdayFood,
     searchRadiusM, addressText, excludeNames, categoryOverride
