@@ -18,29 +18,25 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
-// Helper: stable distance calculator
+// ===================== Helpers =====================
+
 function calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3; // Earth's radius in meters
+  const R = 6371e3;
   const phi1 = (lat1 * Math.PI) / 180;
   const phi2 = (lat2 * Math.PI) / 180;
   const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
   const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
   const a =
     Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
     Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // in meters
+  return R * c;
 }
 
-// Generate realistic and 100% authentic landmark restaurants depending on proximity to pre-defined hubs
 function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000, regionAddress: string = ""): Restaurant[] {
   const hubs = [
     {
-      name: "gangnam",
-      centerLat: 37.4979,
-      centerLon: 127.0276,
+      name: "gangnam", centerLat: 37.4979, centerLon: 127.0276,
       templates: [
         { name: "땀땀 강남본점", category: "아시아음식 > 베트남요리", address: "서울 강남구 역삼동 817-31", menu_preview: ["소곱창 쌀국수", "숯불 직화 소고기 국수", "짜조"] },
         { name: "창고43 강남점", category: "한식 > 소고기구이", address: "서울 강남구 테헤란로 109", menu_preview: ["한우 설화등심", "창고 스페셜", "깍두기볶음밥"] },
@@ -55,9 +51,7 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
       ]
     },
     {
-      name: "hongdae",
-      centerLat: 37.5575,
-      centerLon: 126.9244,
+      name: "hongdae", centerLat: 37.5575, centerLon: 126.9244,
       templates: [
         { name: "소금집하우스 망원", category: "양식 > 샌드위치", address: "서울 마포구 월드컵로19길 14", menu_preview: ["잠봉뵈르 샌드위치", "피그앤피그", "수제 소시지"] },
         { name: "우동카덴", category: "일식 > 우동", address: "서울 마포구 양화로7길 4.5", menu_preview: ["청우동", "붓카케 우동", "텐토지 우동"] },
@@ -69,9 +63,7 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
       ]
     },
     {
-      name: "yeouido",
-      centerLat: 37.5216,
-      centerLon: 126.9242,
+      name: "yeouido", centerLat: 37.5216, centerLon: 126.9242,
       templates: [
         { name: "진주집", category: "한식 > 국수", address: "서울 영등포구 국제금융로6길 33", menu_preview: ["냉콩국수", "닭칼국수", "접시만두"] },
         { name: "화목순대국 여의도점", category: "한식 > 순대국", address: "서울 영등포구 여의대방로 383", menu_preview: ["순대국밥", "내장탕", "머리고기"] },
@@ -82,9 +74,7 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
       ]
     },
     {
-      name: "sinsa",
-      centerLat: 37.5164,
-      centerLon: 127.0205,
+      name: "sinsa", centerLat: 37.5164, centerLon: 127.0205,
       templates: [
         { name: "한추", category: "술집 > 치킨/호프", address: "서울 강남구 논현로175길 68", menu_preview: ["고추튀김", "한추떡볶이", "후라이드치킨"] },
         { name: "신사전", category: "한식 > 요리주점", address: "서울 강남구 도산대로11길 18", menu_preview: ["치즈감자전", "모듬전", "벌집꿀막걸리"] },
@@ -95,9 +85,7 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
       ]
     },
     {
-      name: "pangyo",
-      centerLat: 37.3948,
-      centerLon: 127.1111,
+      name: "pangyo", centerLat: 37.3948, centerLon: 127.1111,
       templates: [
         { name: "스시쿤", category: "일식 > 오마카세", address: "경기 성남시 분당구 대왕판교로 660", menu_preview: ["런치 오마카세", "디너 스페셜", "모듬 사시미"] },
         { name: "낙생육가", category: "한식 > 삼겹살", address: "경기 성남시 분당구 판교역로 231", menu_preview: ["삼겹살 구이", "목살구이", "김치찌개찌개"] },
@@ -107,9 +95,7 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
       ]
     },
     {
-      name: "haeundae",
-      centerLat: 35.1631,
-      centerLon: 129.1589,
+      name: "haeundae", centerLat: 35.1631, centerLon: 129.1589,
       templates: [
         { name: "해운대 소문난암소갈비집", category: "한식 > 소고기구이", address: "부산 해운대구 중동2로10번길 32-10", menu_preview: ["생갈비", "양념갈비", "감자사리"] },
         { name: "금수복국 해운대본점", category: "한식 > 복어", address: "부산 해운대구 중동1로43번길 23", menu_preview: ["은복지리", "까치복국", "복튀김"] },
@@ -121,23 +107,15 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
     }
   ];
 
-  // Find the closest predefined hub within a 15km threshold
   let bestHub = hubs[0];
   let minHubDist = Infinity;
-
   for (const h of hubs) {
     const dist = calculateHaversine(lat, lon, h.centerLat, h.centerLon);
-    if (dist < minHubDist) {
-      minHubDist = dist;
-      bestHub = h;
-    }
+    if (dist < minHubDist) { minHubDist = dist; bestHub = h; }
   }
 
-  // Use the closest hub's templates if with 15km
   let selectedTemplates = bestHub.templates;
 
-  // Otherwise, if they searched somewhere far (another city like Daejeon, Gwangju, Sokcho),
-  // we generate real, popular nationwide branch restaurant templates adapted to their local center coordinates!
   if (minHubDist > 15000) {
     selectedTemplates = [
       { name: "본죽&비빔밥", category: "한식 > 죽/비빔밥", address: "중앙대로 352길", menu_preview: ["낙지김치죽", "단호박야채죽", "불고기비빔밥"] },
@@ -152,45 +130,32 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
   }
 
   return selectedTemplates.map((t, idx) => {
-    // Distribute offsets around the search center coordinate
     const angle = (idx * 2 * Math.PI) / selectedTemplates.length;
-    // Map offset radii proportionally from 5% to 90% of maxRadiusM dynamically based on the user's slider
     const radiusInKm = (maxRadiusM / 1000) * (0.05 + (idx / selectedTemplates.length) * 0.85);
     const latOffset = (radiusInKm / 111.3) * Math.cos(angle);
     const lonOffset = (radiusInKm / (111.3 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
-
     const rLat = lat + latOffset;
     const rLon = lon + lonOffset;
     const distM = Math.round(calculateHaversine(lat, lon, rLat, rLon));
 
-    // Synthesize fully realistic matching address format using the active region context!
     let baseRegion = "";
     if (regionAddress) {
       const words = regionAddress.replace(/\(.*?\)/g, "").replace("인근", "").trim().split(/\s+/);
-      const filtered = words.filter(w => 
-        w.endsWith("시") || w.endsWith("구") || w.endsWith("동") || w.endsWith("군") || 
-        w.endsWith("구역") || w.endsWith("동가") || w.endsWith("읍") || w.endsWith("면") || 
+      const filtered = words.filter(w =>
+        w.endsWith("시") || w.endsWith("구") || w.endsWith("동") || w.endsWith("군") ||
+        w.endsWith("구역") || w.endsWith("동가") || w.endsWith("읍") || w.endsWith("면") ||
         w.endsWith("특별시") || w.endsWith("광역시") || w.endsWith("도")
       );
-      if (filtered.length > 0) {
-        baseRegion = filtered.slice(0, 3).join(" ");
-      }
+      if (filtered.length > 0) baseRegion = filtered.slice(0, 3).join(" ");
     }
-    
-    // Fallback if baseRegion is empty or too short
     if (!baseRegion || baseRegion.split(" ").length < 2) {
-      if (lat > 37.0 && lat < 38.0 && lon > 126.5 && lon < 127.5) {
-        baseRegion = "서울 마포구 서교동";
-      } else if (lat > 35.0 && lat < 35.5 && lon > 129.0 && lon < 129.3) {
-        baseRegion = "부산 해운대구 우동";
-      } else {
-        baseRegion = "서울 강남구 역삼동";
-      }
+      if (lat > 37.0 && lat < 38.0 && lon > 126.5 && lon < 127.5) baseRegion = "서울 마포구 서교동";
+      else if (lat > 35.0 && lat < 35.5 && lon > 129.0 && lon < 129.3) baseRegion = "부산 해운대구 우동";
+      else baseRegion = "서울 강남구 역삼동";
     }
 
-    // Extract street/number suffix from the original preset address (e.g. "역삼동 817-31" -> "817-31")
     const originalWords = t.address.split(" ");
-    const suffixWords = originalWords.filter(w => 
+    const suffixWords = originalWords.filter(w =>
       !w.endsWith("서울") && !w.endsWith("경기") && !w.endsWith("부산") && !w.endsWith("인천") &&
       !w.endsWith("대구") && !w.endsWith("대전") && !w.endsWith("광주") && !w.endsWith("제주") &&
       !w.endsWith("특별자치도") && !w.endsWith("광역시") && !w.endsWith("특별시") &&
@@ -212,43 +177,24 @@ function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000,
   });
 }
 
-// Lazy load Gemini AI Client
 let aiClient: GoogleGenAI | null = null;
 function getAi(): GoogleGenAI {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      throw new Error("GEMINI_API_KEY is missing from environment secrets.");
-    }
-    aiClient = new GoogleGenAI({
-      apiKey: key,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build'
-        }
-      }
-    });
+    if (!key) throw new Error("GEMINI_API_KEY is missing from environment secrets.");
+    aiClient = new GoogleGenAI({ apiKey: key, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
   }
   return aiClient;
 }
 
-// Programmatic fallbacks for stable restaurant matching images & reviews
 function getDeterministicRating(name: string): number {
   let sum = 0;
-  for (let i = 0; i < name.length; i++) {
-    sum += name.charCodeAt(i);
-  }
-  const rating = 4.1 + (sum % 9) / 10; // Rating between 4.1 and 4.9
+  for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
+  const rating = 4.1 + (sum % 9) / 10;
   return parseFloat(rating.toFixed(1));
 }
 
-// High-precision offline hotspot configurations for stable KSC coordinates mapping
-interface Hotspot {
-  name: string;
-  lat: number;
-  lon: number;
-  address: string;
-}
+interface Hotspot { name: string; lat: number; lon: number; address: string; }
 
 const OFFLINE_HOTSPOTS: Hotspot[] = [
   { name: "gangnam", lat: 37.4979, lon: 127.0276, address: "서울시 강남구 역삼동 대남빌딩 인근" },
@@ -267,83 +213,263 @@ function findClosestOfflineHotspot(lat: number, lon: number): Hotspot {
   let minDistance = Infinity;
   for (const spot of OFFLINE_HOTSPOTS) {
     const dist = calculateHaversine(lat, lon, spot.lat, spot.lon);
-    if (dist < minDistance) {
-      minDistance = dist;
-      closest = spot;
-    }
+    if (dist < minDistance) { minDistance = dist; closest = spot; }
   }
   return closest;
 }
 
 function findOfflineGeocode(query: string): { lat: number; lon: number; address: string } | null {
   const qClean = query.toLowerCase().replace(/\s+/g, "");
-  if (qClean.includes("강남") || qClean.includes("역삼") || qClean.includes("대남빌딩")) {
-    return { lat: 37.4979, lon: 127.0276, address: "서울시 강남구 역삼동 대남빌딩 인근" };
-  }
-  if (qClean.includes("홍대") || qClean.includes("서교") || qClean.includes("망원") || qClean.includes("마포") || qClean.includes("소금집")) {
-    return { lat: 37.5575, lon: 126.9244, address: "서울특별시 마포구 서교동 홍대거리 인근" };
-  }
-  if (qClean.includes("여의도") || qClean.includes("영등포") || qClean.includes("여의") || qClean.includes("화목")) {
-    return { lat: 37.5216, lon: 126.9242, address: "서울특별시 영등포구 여의도동 여의도역 인근" };
-  }
-  if (qClean.includes("신사") || qClean.includes("압구정") || qClean.includes("가로수") || qClean.includes("논현")) {
-    return { lat: 37.5164, lon: 127.0205, address: "서울특별시 강남구 신사동 가로수길 인근" };
-  }
-  if (qClean.includes("판교") || qClean.includes("분당") || qClean.includes("성남") || qClean.includes("삼평") || qClean.includes("서현") || qClean.includes("야탑")) {
-    return { lat: 37.3948, lon: 127.1111, address: "경기도 성남시 분당구 삼평동 판교역 인근" };
-  }
-  if (qClean.includes("해운대") || qClean.includes("부산") || qClean.includes("수영") || qClean.includes("우동") || qClean.includes("광안리")) {
-    return { lat: 35.1631, lon: 129.1589, address: "부산광역시 해운대구 우동 해운대역 인근" };
-  }
-  if (qClean.includes("성수") || qClean.includes("성동") || qClean.includes("뚝섬") || qClean.includes("서울숲")) {
-    return { lat: 37.5446, lon: 127.0560, address: "서울특별시 성동구 성수동 성수역 인근" };
-  }
-  if (qClean.includes("서울역") || qClean.includes("종로") || qClean.includes("을지로") || qClean.includes("중구") || qClean.includes("봉래동")) {
-    return { lat: 37.5545, lon: 126.9708, address: "서울특별시 중구 봉래동 서울역 인근" };
-  }
-  if (qClean.includes("제주") || qClean.includes("서귀포") || qClean.includes("이도동")) {
-    return { lat: 33.4996, lon: 126.5312, address: "제주특별자치도 제주시 이도동 인근" };
-  }
-  if (qClean.includes("수원") || qClean.includes("인계") || qClean.includes("행궁") || qClean.includes("팔달")) {
-    return { lat: 37.2635, lon: 127.0286, address: "경기도 수원시 팔달구 인계동 인근" };
-  }
-  if (qClean.includes("인천") || qClean.includes("송도") || qClean.includes("구월") || qClean.includes("부평")) {
-    return { lat: 37.4563, lon: 126.7052, address: "인천광역시 남동구 구월동 인근" };
-  }
-  if (qClean.includes("대전") || qClean.includes("둔산") || qClean.includes("유성")) {
-    return { lat: 36.3504, lon: 127.3845, address: "대전광역시 서구 둔산동 인근" };
-  }
-  if (qClean.includes("대구") || qClean.includes("동성로") || qClean.includes("수성")) {
-    return { lat: 35.8714, lon: 128.6014, address: "대구광역시 중구 동성로 인근" };
-  }
-  if (qClean.includes("광주") || qClean.includes("상무") || qClean.includes("충장")) {
-    return { lat: 35.1595, lon: 126.8526, address: "광주광역시 서구 상무지구 인근" };
-  }
-  if (qClean.includes("속초") || qClean.includes("강릉") || qClean.includes("춘천") || qClean.includes("강원")) {
-    return { lat: 37.8228, lon: 128.1555, address: "강원특별자치도 속초시 중앙동 인근" };
-  }
-  if (qClean.includes("일산") || qClean.includes("고양")) {
-    return { lat: 37.6583, lon: 126.8320, address: "경기도 고양시 일산동구 인근" };
-  }
-  if (qClean.includes("잠실") || qClean.includes("송파") || qClean.includes("롯데타워") || qClean.includes("잠실새내")) {
-    return { lat: 37.5133, lon: 127.1022, address: "서울특별시 송파구 잠실동 인근" };
-  }
-  if (qClean.includes("이태원") || qClean.includes("용산") || qClean.includes("한남")) {
-    return { lat: 37.5345, lon: 126.9943, address: "서울특별시 용산구 이태원동 인근" };
-  }
-  if (qClean.includes("신촌") || qClean.includes("이대") || qClean.includes("서대문")) {
-    return { lat: 37.5598, lon: 126.9385, address: "서울특별시 서대문구 신촌역 인근" };
-  }
-  if (qClean.includes("혜화") || qClean.includes("대학로") || qClean.includes("성균관")) {
-    return { lat: 37.5822, lon: 127.0018, address: "서울특별시 종로구 혜화역 대학로 인근" };
-  }
-  if (qClean.includes("서면") || qClean.includes("영도") || qClean.includes("동래") || qClean.includes("부산진")) {
-    return { lat: 35.1578, lon: 129.0591, address: "부산광역시 부산진구 서면역 인근" };
-  }
+  if (qClean.includes("강남") || qClean.includes("역삼") || qClean.includes("대남빌딩")) return { lat: 37.4979, lon: 127.0276, address: "서울시 강남구 역삼동 대남빌딩 인근" };
+  if (qClean.includes("홍대") || qClean.includes("서교") || qClean.includes("망원") || qClean.includes("마포") || qClean.includes("소금집")) return { lat: 37.5575, lon: 126.9244, address: "서울특별시 마포구 서교동 홍대거리 인근" };
+  if (qClean.includes("여의도") || qClean.includes("영등포") || qClean.includes("여의") || qClean.includes("화목")) return { lat: 37.5216, lon: 126.9242, address: "서울특별시 영등포구 여의도동 여의도역 인근" };
+  if (qClean.includes("신사") || qClean.includes("압구정") || qClean.includes("가로수") || qClean.includes("논현")) return { lat: 37.5164, lon: 127.0205, address: "서울특별시 강남구 신사동 가로수길 인근" };
+  if (qClean.includes("판교") || qClean.includes("분당") || qClean.includes("성남") || qClean.includes("삼평") || qClean.includes("서현") || qClean.includes("야탑")) return { lat: 37.3948, lon: 127.1111, address: "경기도 성남시 분당구 삼평동 판교역 인근" };
+  if (qClean.includes("해운대") || qClean.includes("부산") || qClean.includes("수영") || qClean.includes("우동") || qClean.includes("광안리")) return { lat: 35.1631, lon: 129.1589, address: "부산광역시 해운대구 우동 해운대역 인근" };
+  if (qClean.includes("성수") || qClean.includes("성동") || qClean.includes("뚝섬") || qClean.includes("서울숲")) return { lat: 37.5446, lon: 127.0560, address: "서울특별시 성동구 성수동 성수역 인근" };
+  if (qClean.includes("서울역") || qClean.includes("종로") || qClean.includes("을지로") || qClean.includes("중구") || qClean.includes("봉래동")) return { lat: 37.5545, lon: 126.9708, address: "서울특별시 중구 봉래동 서울역 인근" };
+  if (qClean.includes("제주") || qClean.includes("서귀포") || qClean.includes("이도동")) return { lat: 33.4996, lon: 126.5312, address: "제주특별자치도 제주시 이도동 인근" };
+  if (qClean.includes("수원") || qClean.includes("인계") || qClean.includes("행궁") || qClean.includes("팔달")) return { lat: 37.2635, lon: 127.0286, address: "경기도 수원시 팔달구 인계동 인근" };
+  if (qClean.includes("인천") || qClean.includes("송도") || qClean.includes("구월") || qClean.includes("부평")) return { lat: 37.4563, lon: 126.7052, address: "인천광역시 남동구 구월동 인근" };
+  if (qClean.includes("대전") || qClean.includes("둔산") || qClean.includes("유성")) return { lat: 36.3504, lon: 127.3845, address: "대전광역시 서구 둔산동 인근" };
+  if (qClean.includes("대구") || qClean.includes("동성로") || qClean.includes("수성")) return { lat: 35.8714, lon: 128.6014, address: "대구광역시 중구 동성로 인근" };
+  if (qClean.includes("광주") || qClean.includes("상무") || qClean.includes("충장")) return { lat: 35.1595, lon: 126.8526, address: "광주광역시 서구 상무지구 인근" };
+  if (qClean.includes("속초") || qClean.includes("강릉") || qClean.includes("춘천") || qClean.includes("강원")) return { lat: 37.8228, lon: 128.1555, address: "강원특별자치도 속초시 중앙동 인근" };
+  if (qClean.includes("일산") || qClean.includes("고양")) return { lat: 37.6583, lon: 126.8320, address: "경기도 고양시 일산동구 인근" };
+  if (qClean.includes("잠실") || qClean.includes("송파") || qClean.includes("롯데타워") || qClean.includes("잠실새내")) return { lat: 37.5133, lon: 127.1022, address: "서울특별시 송파구 잠실동 인근" };
+  if (qClean.includes("이태원") || qClean.includes("용산") || qClean.includes("한남")) return { lat: 37.5345, lon: 126.9943, address: "서울특별시 용산구 이태원동 인근" };
+  if (qClean.includes("신촌") || qClean.includes("이대") || qClean.includes("서대문")) return { lat: 37.5598, lon: 126.9385, address: "서울특별시 서대문구 신촌역 인근" };
+  if (qClean.includes("혜화") || qClean.includes("대학로") || qClean.includes("성균관")) return { lat: 37.5822, lon: 127.0018, address: "서울특별시 종로구 혜화역 대학로 인근" };
+  if (qClean.includes("서면") || qClean.includes("영도") || qClean.includes("동래") || qClean.includes("부산진")) return { lat: 35.1578, lon: 129.0591, address: "부산광역시 부산진구 서면역 인근" };
   return null;
 }
 
-// API Routes FIRST
+function extractNeighborhood(addressText: string): string {
+  if (!addressText) return "서울";
+  const cleaned = addressText.replace(/\(.*?\)/g, "").replace("인근", "").trim();
+  const words = cleaned.split(/\s+/);
+  const neighborhoodWord = words.find(w => w.endsWith("동") || w.endsWith("역") || w.endsWith("가") || w.endsWith("길"));
+  if (neighborhoodWord) return neighborhoodWord;
+  const guWord = words.find(w => w.endsWith("구"));
+  if (guWord) return guWord;
+  return words[words.length - 1] || "서울";
+}
+
+const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
+  "치킨": ["치킨", "닭강정", "후라이드", "양념치킨"],
+  "패스트푸드": ["버거", "샌드위치", "패스트푸드"],
+  "한식": ["한식", "백반", "국밥", "찌개", "한정식"],
+  "피자": ["피자", "화덕피자"],
+  "중식": ["중식", "짜장면", "짬뽕", "마라탕", "탕수육"],
+  "일식": ["일식", "초밥", "라멘", "돈까스", "우동"],
+  "양식": ["양식", "파스타", "스테이크", "브런치"]
+};
+
+function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
+  if (mbti.health === "loss") return ["샐러드", "포케", "샤브샤브", "두부", "닭가슴살", "비빔밥", "쌈밥", "월남쌈", "쌀국수", "회", "채식", "베트남", "태국", "훈제연어", "해산물", "나물정식"];
+  if (mbti.health === "gain") return ["소고기", "장어", "삼계탕", "스테이크", "닭갈비", "훠궈", "육회", "곱창", "갈비탕", "단백질", "헬스도시락", "닭볶음탕"];
+  if (mbti.health === "sugar") return ["현미밥", "두부", "나물", "채소", "저당", "한정식", "사찰음식", "죽", "된장국", "샐러드", "해산물", "맑은국"];
+
+  if (mbti.spicy >= 4 && mbti.fullness >= 4) return ["마라탕", "불닭", "낙지볶음", "쭈꾸미", "매운갈비찜", "화끈한찌개", "떡볶이", "닭발", "순대국", "감자탕"];
+  if (mbti.spicy >= 4) return ["마라탕", "짬뽕", "쭈꾸미", "낙지볶음", "불닭", "떡볶이", "에티오피아", "마라샹궈", "탄탄면", "양꼬치"];
+  if (mbti.spicy <= 2 && mbti.fullness <= 2) return ["샌드위치", "브런치", "크림파스타", "오므라이스", "우동", "소바", "연어덮밥", "카페밥", "토스트", "롤"];
+  if (mbti.spicy <= 2) return ["칼국수", "돈까스", "초밥", "백반", "크림파스타", "우동", "오므라이스", "함박스테이크", "카츠", "소바"];
+
+  if (mbti.salty >= 4 && mbti.drink >= 4) return ["족발", "간장게장", "보쌈", "감자탕", "순대국", "곱창", "막창", "안주", "파전", "해물탕"];
+  if (mbti.salty >= 4) return ["족발", "간장게장", "보쌈", "감자탕", "된장찌개", "순대국", "짬뽕", "김치찌개", "갈치조림", "고등어구이"];
+  if (mbti.salty <= 2 && mbti.fullness <= 2) return ["샤브샤브", "월남쌈", "쌀국수", "연어", "두부", "소바", "냉면", "유부초밥", "아보카도", "포케"];
+  if (mbti.salty <= 2) return ["샤브샤브", "백숙", "맑은탕", "월남쌈", "쌀국수", "연어", "일식", "냉면", "비빔밥", "닭백숙"];
+
+  if (mbti.fullness >= 4 && mbti.drink >= 4) return ["삼겹살", "곱창", "양꼬치", "막창", "소갈비", "해물탕", "보쌈", "족발", "닭갈비", "수육"];
+  if (mbti.fullness >= 4) return ["국밥", "감자탕", "한정식", "뷔페", "돼지국밥", "쌈밥", "육개장", "설렁탕", "갈비탕", "찜닭"];
+  if (mbti.fullness <= 2) return ["김밥", "샌드위치", "브런치", "토스트", "카페밥", "덮밥", "유부초밥", "롤", "비빔밥", "포케"];
+
+  if (mbti.drink >= 4 && mbti.speed >= 4) return ["치킨", "피자", "파전", "곱창", "막창", "안주", "포차", "이자카야", "닭발", "오돌뼈"];
+  if (mbti.drink >= 4) return ["파전", "해물", "보쌈", "치킨", "이자카야", "포차", "곱창", "삼겹살", "수육", "막걸리"];
+
+  if (mbti.speed <= 2 && mbti.fullness >= 3) return ["오마카세", "코스요리", "한정식", "파인다이닝", "이탈리안", "프렌치", "일식코스", "스시오마카세"];
+  if (mbti.speed <= 2) return ["브런치카페", "비스트로", "이탈리안", "파인다이닝", "한정식", "퓨전", "일식", "와인바"];
+  if (mbti.speed >= 4) return ["분식", "김밥", "라멘", "덮밥", "패스트푸드", "편의점도시락", "국수", "우동", "솥밥", "돈부리"];
+
+  return ["한식", "파스타", "국밥", "초밥", "버거", "쌀국수", "비빔밥", "카레", "태국음식", "중식"];
+}
+
+function generateDynamicComment(rest: { category: string }, mbti: MuckBti, mealType: string): string {
+  const cat = rest.category || "";
+  if (mbti.health === "loss" && (cat.includes("샐러드") || cat.includes("베트남") || cat.includes("두부"))) return "가볍고 깔끔하게, 몸도 기분도 리셋되는 한 끼예요 🥗";
+  if (mbti.health === "gain" && (cat.includes("고기") || cat.includes("갈비") || cat.includes("단백"))) return "오늘 운동 보상은 여기서, 든든한 단백질 충전소예요 💪";
+  if (mbti.spicy >= 4 && (cat.includes("마라") || cat.includes("매운") || cat.includes("낙지"))) return "얼얼하게 번지는 매운맛으로 하루 스트레스 날려버리세요 🌶️";
+  if (mbti.spicy <= 2 && (cat.includes("브런치") || cat.includes("카페") || cat.includes("양식"))) return "자극 없이 부드럽게, 오늘 입맛에 딱 맞는 선택이에요 ☕";
+  if (mbti.fullness >= 4 && (cat.includes("국밥") || cat.includes("갈비") || cat.includes("찜"))) return "든든하게 속을 채워줄 오늘의 최선이에요. 배부르게 드세요 🍲";
+  if (mbti.drink >= 4 && mealType === "저녁") return "반주 한 잔 곁들이기 딱 좋은 안주 라인업이에요 🍺";
+  if (mbti.speed >= 4) return "빠르게 먹고 빠르게 충전, 오늘 여기서 해결하세요 ⚡";
+  if (cat.includes("브런치") || cat.includes("카페")) return "공간까지 맛있는 곳, 여유로운 한 끼 즐겨보세요 ✨";
+  if (cat.includes("한식")) return "오늘 같은 날엔 역시 집밥 같은 한식이 최고예요 🍚";
+  if (cat.includes("일식")) return "정갈하고 섬세한 일식으로 기분 좋게 채워보세요 🍣";
+  if (cat.includes("중식")) return "풍성한 중식 한 상으로 오늘도 힘차게 달려보세요 🥢";
+  if (cat.includes("양식")) return "오늘은 조금 특별하게, 양식으로 기분 전환 어때요 🍝";
+  return `먹BTI 성향과 가장 잘 맞는 ${cat.split(" > ").pop()} 맛집이에요 ✨`;
+}
+
+// ===================== Routes =====================
+
+app.post("/api/reverse-geocode", async (req, res) => {
+  const { latitude, longitude } = req.body;
+  if (!latitude || !longitude) {
+    return res.status(400).json({ error: "Missing coordinates latitude/longitude" });
+  }
+  const latNum = parseFloat(latitude);
+  const lonNum = parseFloat(longitude);
+
+  const apiKey = process.env.KAKAO_REST_API_KEY;
+  if (apiKey) {
+    try {
+      const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`;
+      const response = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } });
+      const data: any = await response.json();
+      if (data.documents && data.documents.length > 0) {
+        const addr = data.documents[0].address;
+        const roadAddr = data.documents[0].road_address;
+        const addressText = roadAddr ? roadAddr.address_name : addr.address_name;
+        return res.json({ address: addressText });
+      }
+    } catch (e) {
+      console.error("Kakao address conversion API error:", e);
+    }
+  }
+
+  const closestSpot = findClosestOfflineHotspot(latNum, lonNum);
+  res.json({ address: closestSpot.address });
+});
+
+app.get("/api/autocomplete", async (req, res) => {
+  const query = req.query.q as string;
+  if (!query || query.trim().length === 0) return res.json({ items: [] });
+
+  const apiKey = process.env.KAKAO_REST_API_KEY;
+  if (!apiKey || apiKey === "your_kakao_rest_api_key_here") return res.json({ items: [] });
+
+  try {
+    const addressUrl = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=5`;
+    const keywordUrl = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=10`;
+
+    const [addressResponse, keywordResponse] = await Promise.all([
+      fetch(addressUrl, { headers: { Authorization: `KakaoAK ${apiKey}` } }).catch(() => null),
+      fetch(keywordUrl, { headers: { Authorization: `KakaoAK ${apiKey}` } }).catch(() => null)
+    ]);
+
+    let addressData: any = { documents: [] };
+    let keywordData: any = { documents: [] };
+
+    if (addressResponse && addressResponse.ok) addressData = await addressResponse.json().catch(() => ({ documents: [] }));
+    if (keywordResponse && keywordResponse.ok) keywordData = await keywordResponse.json().catch(() => ({ documents: [] }));
+
+    const addrItems = (addressData.documents || []).map((doc: any) => ({
+      place_name: doc.address_name, category_name: "지역 / 주소", address_name: doc.address_name,
+      lat: parseFloat(doc.y), lon: parseFloat(doc.x)
+    }));
+    const kwItems = (keywordData.documents || []).map((doc: any) => ({
+      place_name: doc.place_name, category_name: doc.category_name, address_name: doc.road_address_name || doc.address_name,
+      lat: parseFloat(doc.y), lon: parseFloat(doc.x)
+    }));
+
+    const combined = [...addrItems, ...kwItems];
+    const seen = new Set<string>();
+    const items = [];
+    for (const item of combined) {
+      const geoKey = `${item.lat.toFixed(5)}_${item.lon.toFixed(5)}`;
+      const nameKey = `${item.place_name}_${item.address_name}`;
+      if (!seen.has(geoKey) && !seen.has(nameKey)) {
+        seen.add(geoKey); seen.add(nameKey); items.push(item);
+      }
+    }
+    return res.json({ items: items.slice(0, 10) });
+  } catch (e) {
+    console.error("Autocomplete error:", e);
+    return res.json({ items: [] });
+  }
+});
+
+app.post("/api/geocode", async (req, res) => {
+  const { query } = req.body;
+  if (!query || query.trim().length === 0) return res.status(400).json({ error: "Query is required" });
+
+  const apiKey = process.env.KAKAO_REST_API_KEY;
+  if (apiKey && apiKey !== "your_kakao_rest_api_key_here") {
+    try {
+      const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=1`;
+      const response = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } });
+      const data: any = await response.json();
+      if (data.documents && data.documents.length > 0) {
+        const doc = data.documents[0];
+        return res.json({ lat: parseFloat(doc.y), lon: parseFloat(doc.x), address: doc.address_name });
+      }
+    } catch (e) {
+      console.error("Kakao Address Geocode error:", e);
+    }
+    try {
+      const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=1`;
+      const response = await fetch(url, { headers: { Authorization: `KakaoAK ${apiKey}` } });
+      const data: any = await response.json();
+      if (data.documents && data.documents.length > 0) {
+        const doc = data.documents[0];
+        return res.json({ lat: parseFloat(doc.y), lon: parseFloat(doc.x), address: doc.place_name + " (" + doc.address_name + ")" });
+      }
+    } catch (e) {
+      console.error("Kakao Keyword Geocode error:", e);
+    }
+  }
+
+  const offlineMatch = findOfflineGeocode(query);
+  if (offlineMatch) return res.json(offlineMatch);
+
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const ai = getAi();
+      const systemPrompt = `너는 아주 똑똑한 한국 지리 및 행정구역 공간 정보 검색 엔진이다.
+유저가 입력한 한국 내 행정지명, 명소, 지하철역, 도로명 등의 주소 검색어('${query}')에 속한 실제 지리적 위경도 정보와 가장 가깝고 정리된 표준 정규 지번/도로명 주소를 분석하여 반환하라.
+
+반드시 JSON 형식만 출력해야 하며, 응답 앞뒤에 마크다운 백틱(\`\`\`json)을 절대 넣지 마라.
+
+[출력 데이터 예시]
+{
+  "lat": 37.5575,
+  "lon": 126.9244,
+  "address": "서울특별시 마포구 서교동 홍대거리 인근"
+}`;
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: `검색어: ${query}`,
+        config: { systemInstruction: systemPrompt, temperature: 0.1, responseMimeType: "application/json" }
+      });
+      const responseText = response.text;
+      if (responseText) {
+        let cleaned = responseText.trim();
+        if (cleaned.startsWith("```")) cleaned = cleaned.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.lat && parsed.lon && parsed.address) {
+          return res.json({ lat: parseFloat(parsed.lat), lon: parseFloat(parsed.lon), address: parsed.address });
+        }
+      }
+    } catch (e: any) {
+      const isRateLimit = e?.message?.includes("429") || e?.status === "RESOURCE_EXHAUSTED" || JSON.stringify(e).includes("Quota exceeded");
+      console.log(isRateLimit ? "[Info] Gemini Geocoding rate-limited (429)." : "[Info] Gemini Geocoding API failed:", e?.message || e);
+    }
+  }
+
+  let hashVal = 0;
+  for (let i = 0; i < query.length; i++) hashVal = query.charCodeAt(i) + ((hashVal << 5) - hashVal);
+  const latDelta = ((Math.abs(hashVal) % 150) / 1000) - 0.075;
+  const lonDelta = (((Math.abs(hashVal) >> 3) % 150) / 1000) - 0.075;
+  const solvedLat = 37.5500 + latDelta;
+  const solvedLon = 126.9800 + lonDelta;
+
+  res.json({
+    lat: parseFloat(solvedLat.toFixed(5)),
+    lon: parseFloat(solvedLon.toFixed(5)),
+    address: `${query} (가까운 가상 미식구역)`
+  });
+});
 
 app.post("/api/recommend", async (req, res) => {
   console.log("API /api/recommend called");
@@ -360,7 +486,6 @@ app.post("/api/recommend", async (req, res) => {
   const lonNum = parseFloat(longitude);
   const radius = Math.min(Math.max(searchRadiusM || 1000, 100), 3000);
 
-  // 서버 기준 식사 시간대 자동 판별
   const kstDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   const hour = kstDate.getHours();
   let detectedMealType: "아침" | "점심" | "저녁" | "야식" = "점심";
@@ -369,7 +494,6 @@ app.post("/api/recommend", async (req, res) => {
   else if (hour >= 16 && hour < 21) detectedMealType = "저녁";
   else detectedMealType = "야식";
 
-  // 카테고리 칩을 선택했으면 그 키워드로만, 아니면 먹BTI 기반 키워드로 검색
   const menuKeywords = (categoryOverride && CATEGORY_KEYWORD_MAP[categoryOverride])
     ? CATEGORY_KEYWORD_MAP[categoryOverride]
     : getMenuKeywordsFromMBTI(muckBti);
@@ -384,7 +508,6 @@ app.post("/api/recommend", async (req, res) => {
     try {
       const searchPromises = menuKeywords.map(async (keyword) => {
         const searchQuery = `${locationPrefix} ${keyword}`;
-        // category_group_code=FD6 → 음식점만 (화장품/옥외광고 등 비음식점 매장 원천 차단)
         const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&x=${longitude}&y=${latitude}&radius=${radius}&size=10&category_group_code=FD6`;
         const response = await fetch(url, { headers: { Authorization: `KakaoAK ${kakaoApiKey}` } });
         const data: any = await response.json();
@@ -427,7 +550,6 @@ app.post("/api/recommend", async (req, res) => {
     return res.status(404).json({ error: "NO_RESTAURANTS_FOUND", message: "주변에 조건에 맞는 식당이 없습니다." });
   }
 
-  // 정확히 같은 식당(이름 일치)만 오늘 본 목록에서 제외. 후보 부족하더라도 절대 다시 끼워주지 않음.
   if (excludeNames && Array.isArray(excludeNames) && excludeNames.length > 0) {
     rawNearby = rawNearby.filter(r => !excludeNames.includes(r.name));
   }
@@ -436,7 +558,6 @@ app.post("/api/recommend", async (req, res) => {
     return res.status(404).json({ error: "NO_RESTAURANTS_FOUND", message: "오늘 이미 추천된 식당 외에 더 보여드릴 곳이 없어요. 반경을 넓혀보세요." });
   }
 
-  // 네이버 평점/사진 매칭 (기존 로직 동일)
   const naverClientId = process.env.NAVER_CLIENT_ID;
   const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
   const naverMatchMap = new Map<string, { rating: number; photo_url: string | null }>();
@@ -448,9 +569,7 @@ app.post("/api/recommend", async (req, res) => {
         try {
           const searchQuery = `${rest.name} ${rest.address.split(" ").slice(0, 2).join(" ")}`;
           const localUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(searchQuery)}&display=1`;
-          const localRes = await fetch(localUrl, {
-            headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret }
-          });
+          const localRes = await fetch(localUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
           const localData: any = await localRes.json();
           if (localData.items && localData.items.length > 0) {
             const matchedItem = localData.items[0];
@@ -458,13 +577,9 @@ app.post("/api/recommend", async (req, res) => {
             let photoUrl: string | null = null;
             try {
               const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(cleanedTitle)}&display=1`;
-              const imageRes = await fetch(imageUrl, {
-                headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret }
-              });
+              const imageRes = await fetch(imageUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
               const imageData: any = await imageRes.json();
-              if (imageData.items && imageData.items.length > 0) {
-                photoUrl = imageData.items[0].link;
-              }
+              if (imageData.items && imageData.items.length > 0) photoUrl = imageData.items[0].link;
             } catch (err) {
               console.error("Naver Image search failed:", err);
             }
@@ -475,18 +590,14 @@ app.post("/api/recommend", async (req, res) => {
         }
       } else {
         const hashVal = rest.name.charCodeAt(0) + rest.name.charCodeAt(rest.name.length - 1);
-        if (hashVal % 2 === 0) {
-          naverMatchMap.set(rest.name, { rating: getDeterministicRating(rest.name), photo_url: null });
-        }
+        if (hashVal % 2 === 0) naverMatchMap.set(rest.name, { rating: getDeterministicRating(rest.name), photo_url: null });
       }
     })
   );
 
-  // === 1단계: Fallback 스코어링으로 식당 3곳 확정 (선정은 항상 이 로직이 담당) ===
   const scored = rawNearby.map((rest) => {
     let score = 0;
 
-    // 어제 먹은 메뉴 배제
     if (yesterdayFood && yesterdayFood.trim().length > 0) {
       const keywords = yesterdayFood.replace(/[^가-힣a-zA-Z\s]/g, "").split(/\s+/);
       const foodSynonyms: Record<string, string[]> = {
@@ -504,7 +615,6 @@ app.post("/api/recommend", async (req, res) => {
       if (matchesYesterday) return { rest, score: -999 };
     }
 
-    // 카테고리 칩을 선택했다면 그게 최우선 가중치
     if (categoryOverride) {
       const catKeywords = CATEGORY_KEYWORD_MAP[categoryOverride] || [categoryOverride];
       const catMatches = catKeywords.some(k => rest.category.includes(k) || rest.name.includes(k));
@@ -541,10 +651,8 @@ app.post("/api/recommend", async (req, res) => {
       score += 1;
     }
 
-    // 거리 가중치
     score += Math.max(0, (1000 - rest.distance_meters) / 1000);
 
-    // 식사 시간대 적합도
     if (detectedMealType === "아침") {
       if (rest.category.includes("샐러드") || rest.category.includes("브런치") || rest.category.includes("두부")) score += 2;
     } else if (detectedMealType === "야식") {
@@ -556,7 +664,6 @@ app.post("/api/recommend", async (req, res) => {
     return { rest, score };
   });
 
-  // 동점일 때는 항상 같은 메뉴만 1등으로 고정되지 않도록 랜덤 타이브레이크
   const sortedCandidates = scored
     .filter(item => item.score > -100)
     .sort((a, b) => (b.score === a.score ? Math.random() - 0.5 : b.score - a.score));
@@ -584,7 +691,6 @@ app.post("/api/recommend", async (req, res) => {
       const categoryLeaf = rest.category.split(" > ").pop() || "";
       const isGenericMenu = !rest.menu_preview[0] || rest.menu_preview[0] === categoryLeaf || rest.menu_preview[0].length < 3;
       const defaultMenu = isGenericMenu ? "오늘의 추천 메뉴" : rest.menu_preview[0];
-
       return {
         name: rest.name,
         recommended_menu: defaultMenu,
@@ -596,7 +702,6 @@ app.post("/api/recommend", async (req, res) => {
 
   let recSource: "gemini" | "fallback" = "fallback";
 
-  // === 2단계: Gemini는 "코멘트 보강 전용"으로만 호출 (식당 선정은 절대 바꾸지 않음) ===
   if (process.env.GEMINI_API_KEY && curateResults.length > 0) {
     try {
       const ai = getAi();
@@ -612,9 +717,7 @@ ${curateResults.map(r => `- ${r.name} (${r.category})`).join("\n")}
       });
 
       let cleaned = (geminiResponse.text || "[]").trim();
-      if (cleaned.startsWith("```")) {
-        cleaned = cleaned.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-      }
+      if (cleaned.startsWith("```")) cleaned = cleaned.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
       const parsed = JSON.parse(cleaned);
       if (Array.isArray(parsed) && parsed.length > 0) {
         curateResults = curateResults.map(r => {
@@ -626,11 +729,9 @@ ${curateResults.map(r => `- ${r.name} (${r.category})`).join("\n")}
     } catch (e: any) {
       const isRateLimit = e?.message?.includes("429") || JSON.stringify(e).includes("Quota exceeded");
       console.log(isRateLimit ? "[429] Gemini 코멘트 생성 스킵, 동적 코멘트 유지" : "[Error] Gemini 코멘트 실패, 동적 코멘트 유지");
-      // 실패 시 위에서 이미 채워둔 generateDynamicComment 결과가 그대로 유지됨
     }
   }
 
-  // === 3단계: 최종 응답 페이로드 구성 ===
   const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
     const original = rawNearby.find(r => r.name === cur.name);
     const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null };
@@ -675,17 +776,13 @@ ${curateResults.map(r => `- ${r.name} (${r.category})`).join("\n")}
   };
 
   console.log(`[Curation Source] ${recSource} (Demo mode: ${isDemoMode})`);
-
   res.json(responsePayload);
 });
 
 // Serve frontend assets
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
