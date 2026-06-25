@@ -1,16 +1,18 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.5
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useState, useEffect } from "react";
 import { Character, MuckBti } from "../types";
 import { getMatchedCharacter } from "../characters";
-import { Sliders, ChevronRight, Check, Heart, HelpCircle, Award } from "lucide-react";
+import { Sliders, ChevronRight, Check, Heart, HelpCircle, Award, Share2 } from "lucide-react";
 
 interface MyProfileProps {
   initialMbti: MuckBti;
   onUpdate: (updated: MuckBti) => void;
+  gpsEnabled: boolean;
+  onToggleGps: () => void;
 }
 
 interface SliderNode {
@@ -21,10 +23,11 @@ interface SliderNode {
   maxLabel: string;
 }
 
-export default function MyProfile({ initialMbti, onUpdate }: MyProfileProps) {
+export default function MyProfile({ initialMbti, onUpdate, gpsEnabled, onToggleGps }: MyProfileProps) {
   const [localMbti, setLocalMbti] = useState<MuckBti>(initialMbti);
   const [character, setCharacter] = useState<Character>(getMatchedCharacter(initialMbti));
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
 
   useEffect(() => {
     setLocalMbti(initialMbti);
@@ -43,10 +46,8 @@ export default function MyProfile({ initialMbti, onUpdate }: MyProfileProps) {
     const updated = { ...localMbti, [key]: value };
     setLocalMbti(updated);
 
-    // Calculate matched character on the fly
     const nextChar = getMatchedCharacter(updated);
     if (nextChar.id !== character.id) {
-      // Trigger character change Toast!
       setToastMessage(`먹BTI 요정이 움직여 [${nextChar.name}] 캐릭터로 바뀌었어요! ✨`);
       setCharacter(nextChar);
       setTimeout(() => setToastMessage(null), 3000);
@@ -69,17 +70,59 @@ export default function MyProfile({ initialMbti, onUpdate }: MyProfileProps) {
     onUpdate(updated);
   };
 
+  const getSharingUrl = () => {
+    const params = [
+      localMbti.spicy,
+      localMbti.fullness,
+      localMbti.salty,
+      localMbti.speed,
+      localMbti.drink,
+      localMbti.health
+    ].join(",");
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?mbti=${params}`;
+  };
+
+  const handleShare = async () => {
+    const shareUrl = getSharingUrl();
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const el = document.createElement("input");
+        el.value = shareUrl;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy share link:", err);
+    }
+  };
+
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-[32px] p-6 shadow-sm border border-gray-150/50 flex flex-col gap-6 animate-fade-in" id="my-profile-panel">
       {/* Current character overview indicator */}
       <div className="flex items-center gap-4 p-4.5 bg-[#F4F9FF] rounded-[24px] border border-blue-100/40">
         <span className="text-4xl select-none">{character.emoji}</span>
-        <div>
+        <div className="flex-1">
           <span className="text-[10px] text-[#3182F6] font-bold uppercase tracking-wider block font-mono">My matched character</span>
           <h2 className="text-lg font-bold text-gray-900 leading-tight">{character.name}</h2>
           <p className="text-xs text-gray-500 mt-1 leading-tight font-normal">아래 슬라이더를 즉시 조절해 성향을 바꿀 수 있어요.</p>
         </div>
       </div>
+
+      {/* Share button */}
+      <button
+        type="button"
+        onClick={handleShare}
+        className="w-full py-3 bg-[#e8f3ff] hover:bg-[#d0e7ff] text-[#3182F6] font-semibold text-sm rounded-[16px] flex items-center justify-center gap-2 transition-all"
+      >
+        <Share2 className="w-4 h-4" /> 친구에게 공유
+      </button>
 
       {/* Grid of Sliders for direct tuning */}
       <div>
@@ -116,7 +159,20 @@ export default function MyProfile({ initialMbti, onUpdate }: MyProfileProps) {
         </div>
       </div>
 
-      {/* Health goal adjustment in MYPAGE */}
+      <div className="flex items-center justify-between p-4 bg-[#F9FAFB] rounded-[20px] border border-gray-150/40">
+        <div>
+          <span className="text-sm font-bold text-gray-800">📍 GPS 위치 자동 사용</span>
+          <p className="text-xs text-gray-400 mt-0.5">끄면 직접 입력한 위치만 사용해요</p>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleGps}
+          className={`w-11 h-6 rounded-full transition-all relative ${gpsEnabled ? "bg-[#3182F6]" : "bg-gray-300"}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all ${gpsEnabled ? "translate-x-5" : ""}`} />
+        </button>
+      </div>
+
       <div>
         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5 px-1">
           <Heart className="w-3.5 h-3.5 text-green-500" /> 건강 지침선 변경
@@ -144,11 +200,17 @@ export default function MyProfile({ initialMbti, onUpdate }: MyProfileProps) {
         </div>
       </div>
 
-      {/* Matched Character alert popup */}
       {toastMessage && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white text-xs px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in z-50 border border-gray-800">
           <b className="text-amber-400">Toss</b>
           <span className="font-semibold text-gray-100">{toastMessage}</span>
+        </div>
+      )}
+
+      {copied && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white text-xs px-5 py-3 rounded-2xl shadow-lg flex items-center gap-2 animate-fade-in z-50">
+          <Check className="w-4 h-4 text-emerald-400 stroke-[3px]" />
+          <span className="font-semibold">친구 유입 공유 링크가 복사되었습니다!</span>
         </div>
       )}
     </div>

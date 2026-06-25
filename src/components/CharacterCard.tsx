@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Character, MuckBti } from "../types";
-import { Share2, RotateCcw, Copy, Check, ArrowRight, Utensils, Award } from "lucide-react";
+import { Share2, RotateCcw, Check, ArrowRight, Award, Image as ImageIcon } from "lucide-react";
+import { toPng } from "html-to-image";
 
 interface CharacterCardProps {
   character: Character;
@@ -17,51 +18,84 @@ interface CharacterCardProps {
 
 export default function CharacterCard({ character, mbti, onRestart, onExplore, isSharedView = false }: CharacterCardProps) {
   const [copied, setCopied] = useState<boolean>(false);
+  const [capturing, setCapturing] = useState<boolean>(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const getSharingUrl = () => {
     const params = [
       mbti.spicy,
       mbti.fullness,
-      mbti.budget,
-      mbti.distance,
+      mbti.salty,
       mbti.speed,
       mbti.drink,
       mbti.health
     ].join(",");
-    
-    // Construct real-time absolute URL
+
     const baseUrl = window.location.origin + window.location.pathname;
     return `${baseUrl}?mbti=${params}`;
   };
 
-  const handleShare = async () => {
+  const handleShareLink = async () => {
     const shareUrl = getSharingUrl();
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
       } else {
-        // Fallback input copy
         const el = document.createElement("input");
         el.value = shareUrl;
         document.body.appendChild(el);
         el.select();
         document.execCommand("copy");
         document.body.removeChild(el);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
       }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy share link:", err);
+    }
+  };
+
+  // 캐릭터 카드를 이미지로 캡처해서 공유/다운로드
+  const handleCaptureShare = async () => {
+    if (!cardRef.current) return;
+    setCapturing(true);
+    try {
+      const dataUrl = await toPng(cardRef.current, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 2, // 고해상도 캡처
+      });
+
+      // Web Share API 지원 시 (모바일) - 이미지 직접 공유
+      if (navigator.share && navigator.canShare) {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], "muck-bti-character.png", { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: "나의 먹BTI 캐릭터",
+            text: `나는 [${character.name}]! 너도 확인해봐 👀`,
+          });
+          setCapturing(false);
+          return;
+        }
+      }
+
+      // Web Share 미지원 시 - 다운로드
+      const link = document.createElement("a");
+      link.download = `muck-bti-${character.id}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Failed to capture card image:", err);
+    } finally {
+      setCapturing(false);
     }
   };
 
   const axisNames = [
     { label: "🌶️ 맵기 강도", val: mbti.spicy, desc: mbti.spicy >= 4 ? "얼큰칼칼파" : mbti.spicy <= 2 ? "순딩순한파" : "중간맵지짱" },
     { label: "🍚 포만감 규모", val: mbti.fullness, desc: mbti.fullness >= 4 ? "두둑배불러" : mbti.fullness <= 2 ? "가벼운식탐" : "적당든든식" },
-    { label: "💰 지출 예산", val: mbti.budget, desc: mbti.budget >= 4 ? "플렉스성향" : mbti.budget <= 2 ? "실속알뜰족" : "무난평범돈" },
-    { label: "🚶 탐방 도보", val: mbti.distance, desc: mbti.distance >= 4 ? "천하뚜벅이" : mbti.distance <= 2 ? "코앞직행파" : "적당걷기러" },
+    { label: "🧂 짠맛 선호 강도", val: mbti.salty, desc: mbti.salty >= 4 ? "짭짤자극파" : mbti.salty <= 2 ? "슴슴담백파" : "적당짭짤이" },
     { label: "⏱️ 식사 속도", val: mbti.speed, desc: mbti.speed >= 4 ? "느긋슬로우" : mbti.speed <= 2 ? "신속스피더" : "적절식사꾼" },
     { label: "🍻 음주 반주", val: mbti.drink, desc: mbti.drink >= 4 ? "술술애주가" : mbti.drink <= 2 ? "오직보리밥" : "한모금취향" }
   ];
@@ -74,53 +108,58 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-[32px] p-6 shadow-sm border border-gray-150/50 flex flex-col gap-6 animate-fade-in" id="character-report">
-      {/* Character Core Brief */}
-      <div className="text-center py-5 bg-[#F9FAFB] rounded-[24px] border border-gray-150/40">
-        <span className="text-5xl inline-block mb-3 select-none animate-bounce">{character.emoji}</span>
-        <div className="text-xs font-semibold text-[#3182F6] tracking-wider mb-1 font-mono uppercase bg-[#e8f3ff] px-3 py-1 rounded-full inline-block">
-          MY MUCK-BTI CHARACTER
+    <div className="w-full max-w-md mx-auto flex flex-col gap-6 animate-fade-in">
+      {/* 캡처 대상 영역 - ref로 감싼 카드 */}
+      <div ref={cardRef} className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-150/50 flex flex-col gap-6" id="character-report">
+        {/* Character Core Brief */}
+        <div className="text-center py-5 bg-[#F9FAFB] rounded-[24px] border border-gray-150/40">
+          <span className="text-5xl inline-block mb-3 select-none">{character.emoji}</span>
+          <div className="text-xs font-semibold text-[#3182F6] tracking-wider mb-1 font-mono uppercase bg-[#e8f3ff] px-3 py-1 rounded-full inline-block">
+            MY MUCK-BTI CHARACTER
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-1">{character.name}</h1>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-1">{character.name}</h1>
-      </div>
 
-      {/* Description text */}
-      <div className="bg-[#F9FAFB] p-4.5 rounded-[20px] border border-gray-150/40">
-        <p className="text-sm font-normal text-gray-600 leading-relaxed text-center">{character.description}</p>
-      </div>
+        {/* Description text */}
+        <div className="bg-[#F9FAFB] p-4.5 rounded-[20px] border border-gray-150/40">
+          <p className="text-sm font-normal text-gray-600 leading-relaxed text-center">{character.description}</p>
+        </div>
 
-      {/* Coordinates / Stats Bars */}
-      <div>
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3.5 flex items-center gap-1.5 px-1">
-          <Award className="w-3.5 h-3.5 text-[#3182F6]" /> 상세 먹스펙 성향점수
-        </h3>
-        
-        <div className="grid grid-cols-2 gap-3">
-          {axisNames.map((axis, i) => (
-            <div key={i} className="p-3.5 bg-[#F9FAFB] rounded-[16px] border border-gray-150/40 flex flex-col gap-1.5">
-              <div className="flex justify-between items-center text-xs font-semibold text-gray-500">
-                <span>{axis.label}</span>
-                <span className="font-mono font-bold text-[#3182F6]">{axis.val}/5</span>
+        {/* Coordinates / Stats Bars */}
+        <div>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3.5 flex items-center gap-1.5 px-1">
+            <Award className="w-3.5 h-3.5 text-[#3182F6]" /> 상세 먹스펙 성향점수
+          </h3>
+
+          <div className="grid grid-cols-2 gap-3">
+            {axisNames.map((axis, i) => (
+              <div key={i} className="p-3.5 bg-[#F9FAFB] rounded-[16px] border border-gray-150/40 flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-semibold text-gray-500">
+                  <span>{axis.label}</span>
+                  <span className="font-mono font-bold text-[#3182F6]">{axis.val}/5</span>
+                </div>
+                <div className="w-full h-1 bg-gray-150 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#3182F6] rounded-full transition-all"
+                    style={{ width: `${(axis.val / 5) * 100}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-gray-400 font-medium font-sans text-right">{axis.desc}</span>
               </div>
-              <div className="w-full h-1 bg-gray-150 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-[#3182F6] rounded-full transition-all"
-                  style={{ width: `${(axis.val / 5) * 100}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-gray-400 font-medium font-sans text-right">{axis.desc}</span>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <div className="mt-3.5 flex items-center justify-between p-3.5 bg-[#F4FAF0] rounded-[16px] border border-green-100/70 text-xs">
+            <span className="font-bold text-green-700 flex items-center gap-1">🎯 오늘의 건강 관리선호</span>
+            <span className="font-bold text-green-800 bg-green-50 px-2.5 py-1 rounded-[10px] border border-green-200">{healthLabels[mbti.health] || "자유식"}</span>
+          </div>
         </div>
 
-        {/* Selected Health Goal */}
-        <div className="mt-3.5 flex items-center justify-between p-3.5 bg-[#F4FAF0] rounded-[16px] border border-green-100/70 text-xs">
-          <span className="font-bold text-green-700 flex items-center gap-1">🎯 오늘의 건강 관리선호</span>
-          <span className="font-bold text-green-800 bg-green-50 px-2.5 py-1 rounded-[10px] border border-green-200">{healthLabels[mbti.health] || "자유식"}</span>
-        </div>
+        {/* 캡처 워터마크 (캡처된 이미지에만 의미있게 보임) */}
+        <p className="text-center text-[10px] text-gray-300 font-mono -mt-2">muck-bti.app 에서 확인하기</p>
       </div>
 
-      {/* Share Notification Toast when triggered */}
+      {/* Toast */}
       {copied && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-900/95 text-white text-xs px-5 py-3 rounded-2xl shadow-lg flex items-center gap-2 animate-fade-in z-50">
           <Check className="w-4 h-4 text-emerald-400 stroke-[3px]" />
@@ -128,8 +167,8 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
         </div>
       )}
 
-      {/* Action CTA Drawer */}
-      <div className="flex flex-col gap-2.5 mt-2">
+      {/* Action CTA Drawer - 캡처 영역 밖 */}
+      <div className="flex flex-col gap-2.5">
         {!isSharedView ? (
           <>
             <button
@@ -140,22 +179,31 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
             >
               오늘의 실존 주변맛집 추천받기 <ArrowRight className="w-4.5 h-4.5" />
             </button>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                id="capture-share-btn"
+                onClick={handleCaptureShare}
+                disabled={capturing}
+                className="py-3 bg-[#3182F6]/10 hover:bg-[#3182F6]/20 text-[#3182F6] font-semibold text-xs rounded-[16px] flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+              >
+                <ImageIcon className="w-3.5 h-3.5" /> {capturing ? "캡처중..." : "이미지 공유"}
+              </button>
               <button
                 type="button"
                 id="share-mbti-btn"
-                onClick={handleShare}
-                className="py-3 bg-[#e8f3ff] hover:bg-[#d0e7ff] text-[#3182F6] font-semibold text-sm rounded-[16px] flex items-center justify-center gap-2 transition-all"
+                onClick={handleShareLink}
+                className="py-3 bg-[#e8f3ff] hover:bg-[#d0e7ff] text-[#3182F6] font-semibold text-xs rounded-[16px] flex items-center justify-center gap-1.5 transition-all"
               >
-                <Share2 className="w-4 h-4" /> 친구에게 공유
+                <Share2 className="w-3.5 h-3.5" /> 링크 공유
               </button>
               <button
                 type="button"
                 id="restart-mbti-btn"
                 onClick={onRestart}
-                className="py-3 bg-gray-150/70 hover:bg-gray-200 text-gray-700 font-semibold text-sm rounded-[16px] flex items-center justify-center gap-2 transition-all"
+                className="py-3 bg-gray-150/70 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-[16px] flex items-center justify-center gap-1.5 transition-all"
               >
-                <RotateCcw className="w-4 h-4" /> 다시 검사하기
+                <RotateCcw className="w-3.5 h-3.5" /> 다시검사
               </button>
             </div>
           </>

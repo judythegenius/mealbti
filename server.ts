@@ -12,6 +12,7 @@ import { Restaurant, RecommendedRestaurant, RecommendationResponse, MuckBti } fr
 
 dotenv.config();
 console.log("KAKAO KEY LOADED:", process.env.KAKAO_REST_API_KEY);
+console.log("NAVER KEY LOADED:", !!process.env.NAVER_CLIENT_ID, !!process.env.NAVER_CLIENT_SECRET);
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -256,13 +257,16 @@ function extractNeighborhood(addressText: string): string {
 }
 
 const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
-  "치킨": ["치킨", "닭강정", "후라이드", "양념치킨"],
-  "패스트푸드": ["버거", "샌드위치", "패스트푸드"],
-  "한식": ["한식", "백반", "국밥", "찌개", "한정식"],
-  "피자": ["피자", "화덕피자"],
-  "중식": ["중식", "짜장면", "짬뽕", "마라탕", "탕수육"],
-  "일식": ["일식", "초밥", "라멘", "돈까스", "우동"],
-  "양식": ["양식", "파스타", "스테이크", "브런치"]
+  "한식": ["한식", "백반", "국밥", "찌개", "한정식", "냉면", "보쌈", "갈비", "삼겹살", "설렁탕", "육개장", "곰탕", "비빔밥", "쌈밥", "순대국", "해장국", "밀면", "감자탕", "불고기", "된장"],
+  "중식": ["중식", "짜장면", "짬뽕", "마라탕", "탕수육", "딤섬", "마라샹궈", "꿔바로우", "양꼬치", "훠궈", "깐풍기"],
+  "일식": ["일식", "초밥", "스시", "라멘", "돈까스", "우동", "소바", "오마카세", "돈부리", "카츠", "야키토리", "덮밥"],
+  "양식": ["양식", "파스타", "스테이크", "브런치", "이탈리안", "샌드위치", "함박", "리조또", "뇨끼", "그라탕", "프렌치"],
+  "분식": ["분식", "떡볶이", "김밥", "순대", "튀김", "라볶이", "쫄면", "어묵", "군만두", "떡볶"],
+  "치킨": ["치킨", "닭강정", "후라이드", "양념치킨", "간장치킨", "마늘치킨", "반반치킨", "닭발"],
+  "피자": ["피자", "화덕피자", "도우", "페퍼로니"],
+  "버거": ["버거", "패스트푸드", "햄버거", "수제버거", "치즈버거"],
+  "멕시칸": ["멕시칸", "타코", "브리또", "퀘사디아", "나초"],
+  "아시안": ["베트남", "태국", "쌀국수", "팟타이", "아시안", "월남쌈", "포케", "반미", "팟카파오", "똠얌"]
 };
 
 function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
@@ -296,19 +300,39 @@ function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
 
 function generateDynamicComment(rest: { category: string }, mbti: MuckBti, mealType: string): string {
   const cat = rest.category || "";
-  if (mbti.health === "loss" && (cat.includes("샐러드") || cat.includes("베트남") || cat.includes("두부"))) return "가볍고 깔끔하게, 몸도 기분도 리셋되는 한 끼예요 🥗";
-  if (mbti.health === "gain" && (cat.includes("고기") || cat.includes("갈비") || cat.includes("단백"))) return "오늘 운동 보상은 여기서, 든든한 단백질 충전소예요 💪";
-  if (mbti.spicy >= 4 && (cat.includes("마라") || cat.includes("매운") || cat.includes("낙지"))) return "얼얼하게 번지는 매운맛으로 하루 스트레스 날려버리세요 🌶️";
-  if (mbti.spicy <= 2 && (cat.includes("브런치") || cat.includes("카페") || cat.includes("양식"))) return "자극 없이 부드럽게, 오늘 입맛에 딱 맞는 선택이에요 ☕";
-  if (mbti.fullness >= 4 && (cat.includes("국밥") || cat.includes("갈비") || cat.includes("찜"))) return "든든하게 속을 채워줄 오늘의 최선이에요. 배부르게 드세요 🍲";
-  if (mbti.drink >= 4 && mealType === "저녁") return "반주 한 잔 곁들이기 딱 좋은 안주 라인업이에요 🍺";
-  if (mbti.speed >= 4) return "빠르게 먹고 빠르게 충전, 오늘 여기서 해결하세요 ⚡";
-  if (cat.includes("브런치") || cat.includes("카페")) return "공간까지 맛있는 곳, 여유로운 한 끼 즐겨보세요 ✨";
-  if (cat.includes("한식")) return "오늘 같은 날엔 역시 집밥 같은 한식이 최고예요 🍚";
-  if (cat.includes("일식")) return "정갈하고 섬세한 일식으로 기분 좋게 채워보세요 🍣";
-  if (cat.includes("중식")) return "풍성한 중식 한 상으로 오늘도 힘차게 달려보세요 🥢";
-  if (cat.includes("양식")) return "오늘은 조금 특별하게, 양식으로 기분 전환 어때요 🍝";
-  return `먹BTI 성향과 가장 잘 맞는 ${cat.split(" > ").pop()} 맛집이에요 ✨`;
+  const candidates: string[] = [];
+
+  if (mbti.health === "loss" && (cat.includes("샐러드") || cat.includes("베트남") || cat.includes("두부")))
+    candidates.push("가볍고 깔끔하게, 몸도 기분도 리셋되는 한 끼예요 🥗");
+  if (mbti.health === "gain" && (cat.includes("고기") || cat.includes("갈비") || cat.includes("단백")))
+    candidates.push("오늘 운동 보상은 여기서, 든든한 단백질 충전소예요 💪");
+  if (mbti.spicy >= 4 && (cat.includes("마라") || cat.includes("매운") || cat.includes("낙지")))
+    candidates.push("얼얼하게 번지는 매운맛으로 하루 스트레스 날려버리세요 🌶️");
+  if (mbti.spicy <= 2 && (cat.includes("브런치") || cat.includes("카페") || cat.includes("양식")))
+    candidates.push("자극 없이 부드럽게, 오늘 입맛에 딱 맞는 선택이에요 ☕");
+  if (mbti.fullness >= 4 && (cat.includes("국밥") || cat.includes("갈비") || cat.includes("찜")))
+    candidates.push("든든하게 속을 채워줄 오늘의 최선이에요. 배부르게 드세요 🍲");
+  if (mbti.salty >= 4 && (cat.includes("족발") || cat.includes("찌개") || cat.includes("장")))
+    candidates.push("짭짤하고 깊은 감칠맛, 오늘 그 한입이 딱 당기실 거예요 🧂");
+  if (mbti.salty <= 2 && (cat.includes("샤브") || cat.includes("두부") || cat.includes("맑은")))
+    candidates.push("자극 없이 깔끔하게, 담백한 한 끼로 속을 편하게 해보세요 🍵");
+  if (mbti.drink >= 4 && mealType === "저녁" && (cat.includes("주점") || cat.includes("안주") || cat.includes("포차")))
+    candidates.push("반주 한 잔 곁들이기 딱 좋은 안주 라인업이에요 🍺");
+  if (mbti.speed >= 4 && (cat.includes("분식") || cat.includes("패스트") || cat.includes("버거")))
+    candidates.push("빠르게 먹고 빠르게 충전, 오늘 여기서 해결하세요 ⚡");
+  if (mbti.speed <= 2 && (cat.includes("코스") || cat.includes("오마카세") || cat.includes("파인")))
+    candidates.push("여유롭게 즐기는 한 상, 오늘은 천천히 음미해보세요 🕊️");
+
+  // 카테고리 기반 보편 코멘트도 후보로 추가 (성향 매칭이 없을 때 대비)
+  if (cat.includes("브런치") || cat.includes("카페")) candidates.push("공간까지 맛있는 곳, 여유로운 한 끼 즐겨보세요 ✨");
+  if (cat.includes("한식")) candidates.push("오늘 같은 날엔 역시 집밥 같은 한식이 최고예요 🍚");
+  if (cat.includes("일식")) candidates.push("정갈하고 섬세한 일식으로 기분 좋게 채워보세요 🍣");
+  if (cat.includes("중식")) candidates.push("풍성한 중식 한 상으로 오늘도 힘차게 달려보세요 🥢");
+  if (cat.includes("양식")) candidates.push("오늘은 조금 특별하게, 양식으로 기분 전환 어때요 🍝");
+  if (cat.includes("치킨")) candidates.push("바삭하고 든든한 한 끼, 오늘 기분 업 시켜줄 거예요 🍗");
+
+  if (candidates.length === 0) return `먹BTI 성향과 잘 맞는 ${cat.split(" > ").pop()} 맛집이에요 ✨`;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 // ===================== Routes =====================
@@ -494,8 +518,8 @@ app.post("/api/recommend", async (req, res) => {
   else if (hour >= 16 && hour < 21) detectedMealType = "저녁";
   else detectedMealType = "야식";
 
-  const menuKeywords = (categoryOverride && CATEGORY_KEYWORD_MAP[categoryOverride])
-    ? CATEGORY_KEYWORD_MAP[categoryOverride]
+ const menuKeywords = (categoryOverride && Array.isArray(categoryOverride) && categoryOverride.length > 0)
+    ? categoryOverride.flatMap((c: string) => CATEGORY_KEYWORD_MAP[c] || [c])
     : getMenuKeywordsFromMBTI(muckBti);
 
   const locationPrefix = extractNeighborhood(addressText);
@@ -519,7 +543,7 @@ app.post("/api/recommend", async (req, res) => {
               category: doc.category_name.replace(/^음식점\s*>\s*/, ""),
               distance_meters: parseInt(doc.distance) || Math.floor(Math.random() * radius),
               address: doc.road_address_name || doc.address_name,
-              menu_preview: [doc.category_name.split(" > ").pop() || keyword],
+              menu_preview: [doc.category_name.split(" > ").pop() || ""].filter(Boolean),
               kakao_url: doc.place_url,
               x: doc.x,
               y: doc.y
@@ -558,147 +582,171 @@ app.post("/api/recommend", async (req, res) => {
     return res.status(404).json({ error: "NO_RESTAURANTS_FOUND", message: "오늘 이미 추천된 식당 외에 더 보여드릴 곳이 없어요. 반경을 넓혀보세요." });
   }
 
-  const naverClientId = process.env.NAVER_CLIENT_ID;
-  const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
-  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null }>();
-  const topRestaurantsToMatch = rawNearby.slice(0, 10);
+// 1. 먼저 점수 계산
+const scored = rawNearby.map((rest) => {
+  let score = 0;
 
-  await Promise.all(
-    topRestaurantsToMatch.map(async (rest) => {
-      if (naverClientId && naverClientSecret) {
-        try {
-          const searchQuery = `${rest.name} ${rest.address.split(" ").slice(0, 2).join(" ")}`;
-          const localUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(searchQuery)}&display=1`;
-          const localRes = await fetch(localUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
-          const localData: any = await localRes.json();
-          if (localData.items && localData.items.length > 0) {
-            const matchedItem = localData.items[0];
-            const cleanedTitle = matchedItem.title.replace(/<\/?[^>]+(>|$)/g, "");
-            let photoUrl: string | null = null;
-            try {
-              const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(cleanedTitle)}&display=1`;
-              const imageRes = await fetch(imageUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
-              const imageData: any = await imageRes.json();
-              if (imageData.items && imageData.items.length > 0) photoUrl = imageData.items[0].link;
-            } catch (err) {
-              console.error("Naver Image search failed:", err);
-            }
-            naverMatchMap.set(rest.name, { rating: getDeterministicRating(rest.name), photo_url: photoUrl });
-          }
-        } catch (e) {
-          console.error(`Naver match failed for ${rest.name}:`, e);
-        }
-      } else {
-        const hashVal = rest.name.charCodeAt(0) + rest.name.charCodeAt(rest.name.length - 1);
-        if (hashVal % 2 === 0) naverMatchMap.set(rest.name, { rating: getDeterministicRating(rest.name), photo_url: null });
-      }
-    })
-  );
+  if (yesterdayFood && yesterdayFood.trim().length > 0) {
+    const keywords = yesterdayFood.replace(/[^가-힣a-zA-Z\s]/g, "").split(/\s+/);
+    const foodSynonyms: Record<string, string[]> = {
+      "돈까스": ["돈까스", "돈카츠", "경양식", "커틀릿"],
+      "초밥": ["초밥", "스시", "오마카세"],
+      "삼겹살": ["삼겹살", "돼지구이", "고기집"],
+      "치킨": ["치킨", "닭", "프라이드"],
+      "피자": ["피자", "이탈리안"],
+      "라멘": ["라멘", "라면", "일식면"]
+    };
+    const expandedKeywords = keywords.flatMap(kw => foodSynonyms[kw] || [kw]);
+    const matchesYesterday = expandedKeywords.some(kw =>
+      kw && (rest.name.includes(kw) || rest.category.includes(kw) || rest.menu_preview.some(m => m.includes(kw)))
+    );
+    if (matchesYesterday) return { rest, score: -999 };
+  }
 
-  const scored = rawNearby.map((rest) => {
-    let score = 0;
+  if (categoryOverride && Array.isArray(categoryOverride) && categoryOverride.length > 0) {
+    const allowedKeywords = categoryOverride.flatMap((c: string) => CATEGORY_KEYWORD_MAP[c] || [c]);
+    const catMatches = allowedKeywords.some(k => rest.category.includes(k));
+    if (!catMatches) return { rest, score: -999 };
+    score += 10;
+  }
 
-    if (yesterdayFood && yesterdayFood.trim().length > 0) {
-      const keywords = yesterdayFood.replace(/[^가-힣a-zA-Z\s]/g, "").split(/\s+/);
-      const foodSynonyms: Record<string, string[]> = {
-        "돈까스": ["돈까스", "돈카츠", "경양식", "커틀릿"],
-        "초밥": ["초밥", "스시", "오마카세"],
-        "삼겹살": ["삼겹살", "돼지구이", "고기집"],
-        "치킨": ["치킨", "닭", "프라이드"],
-        "피자": ["피자", "이탈리안"],
-        "라멘": ["라멘", "라면", "일식면"]
-      };
-      const expandedKeywords = keywords.flatMap(kw => foodSynonyms[kw] || [kw]);
-      const matchesYesterday = expandedKeywords.some(kw =>
-        kw && (rest.name.includes(kw) || rest.category.includes(kw) || rest.menu_preview.some(m => m.includes(kw)))
-      );
-      if (matchesYesterday) return { rest, score: -999 };
-    }
+  const previews = rest.menu_preview;
 
-    if (categoryOverride) {
-      const catKeywords = CATEGORY_KEYWORD_MAP[categoryOverride] || [categoryOverride];
-      const catMatches = catKeywords.some(k => rest.category.includes(k) || rest.name.includes(k));
-      score += catMatches ? 10 : -5;
-    }
+  if (muckBti.spicy >= 4) {
+    const triggers = ["매운", "매콤", "불", "닭발", "낙지", "탕", "마라", "얼큰", "짬뽕", "찌개"];
+    if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
+  } else if (muckBti.spicy <= 2) {
+    const triggers = ["샐러드", "냉면", "순두부", "돈까스", "스시", "브런치", "크림", "파스타"];
+    if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
+  }
 
-    const previews = rest.menu_preview;
+  if (muckBti.fullness >= 4) {
+    const triggers = ["갈비", "한우", "보쌈", "육개장", "국밥", "해장국", "고기", "삼겹살"];
+    if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
+  } else if (muckBti.fullness <= 2) {
+    const triggers = ["샐러드", "브런치", "식빵", "어묵", "가벼운"];
+    if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
+  }
 
-    if (muckBti.spicy >= 4) {
-      const triggers = ["매운", "매콤", "불", "닭발", "낙지", "탕", "마라", "얼큰", "짬뽕", "찌개"];
-      if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
-    } else if (muckBti.spicy <= 2) {
-      const triggers = ["샐러드", "냉면", "순두부", "돈까스", "스시", "브런치", "크림", "파스타"];
-      if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
-    }
+  if (muckBti.salty >= 4) {
+    const triggers = ["젓갈", "장조림", "족발", "간장", "절임", "짭짤"];
+    if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
+  } else if (muckBti.salty <= 2) {
+    const triggers = ["샤브샤브", "백숙", "맑은탕", "담백", "두부"];
+    if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
+  }
 
-    if (muckBti.fullness >= 4) {
-      const triggers = ["갈비", "한우", "보쌈", "육개장", "국밥", "해장국", "고기", "삼겹살"];
-      if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
-    } else if (muckBti.fullness <= 2) {
-      const triggers = ["샐러드", "브런치", "식빵", "어묵", "가벼운"];
-      if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
-    }
+  if (muckBti.drink >= 4 && (rest.category.includes("주점") || rest.category.includes("맥주") || rest.category.includes("안주") || rest.category.includes("닭발"))) {
+    score += 1;
+  }
 
-    if (muckBti.salty >= 4) {
-      const triggers = ["젓갈", "장조림", "족발", "간장", "절임", "짭짤"];
-      if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
-    } else if (muckBti.salty <= 2) {
-      const triggers = ["샤브샤브", "백숙", "맑은탕", "담백", "두부"];
-      if (previews.some(m => triggers.some(t => m.includes(t))) || triggers.some(t => rest.category.includes(t))) score += 3;
-    }
+  score += Math.max(0, (1000 - rest.distance_meters) / 1000);
 
-    if (muckBti.drink >= 4 && (rest.category.includes("주점") || rest.category.includes("맥주") || rest.category.includes("안주") || rest.category.includes("닭발"))) {
-      score += 1;
-    }
+  const isBar = rest.category.includes("호프") || rest.category.includes("주점") || rest.category.includes("맥주") || rest.category.includes("안주");
 
-    score += Math.max(0, (1000 - rest.distance_meters) / 1000);
+  if (detectedMealType === "아침" || detectedMealType === "점심") {
+    if (isBar) return { rest, score: -999 };
+    if (rest.category.includes("샐러드") || rest.category.includes("브런치") || rest.category.includes("두부")) score += 2;
+    else score += 2;
+  } else if (detectedMealType === "저녁") {
+    if (!isBar) score += 1;
+  } else {
+    if (isBar) score += 2;
+  }
 
-    if (detectedMealType === "아침") {
-      if (rest.category.includes("샐러드") || rest.category.includes("브런치") || rest.category.includes("두부")) score += 2;
-    } else if (detectedMealType === "야식") {
-      if (rest.category.includes("닭발") || rest.category.includes("맥주") || rest.category.includes("안주") || rest.category.includes("주점")) score += 2;
-    } else {
-      if (!rest.category.includes("호프") && !rest.category.includes("주점")) score += 2;
-    }
+  return { rest, score };
+});
 
-    return { rest, score };
-  });
+// 2. 정렬 + 최종 3곳 선정
+const sortedCandidates = scored
+  .filter(item => item.score > -100)
+  .sort((a, b) => (b.score === a.score ? Math.random() - 0.5 : b.score - a.score));
 
-  const sortedCandidates = scored
-    .filter(item => item.score > -100)
-    .sort((a, b) => (b.score === a.score ? Math.random() - 0.5 : b.score - a.score));
+const filteredAndSorted: typeof sortedCandidates = [];
+const usedCategories = new Set<string>();
 
-  const filteredAndSorted: typeof sortedCandidates = [];
-  const usedCategories = new Set<string>();
-
+for (const item of sortedCandidates) {
+  const mainCategory = item.rest.category.split(" > ")[0];
+  if (!usedCategories.has(mainCategory) || filteredAndSorted.length === 0) {
+    filteredAndSorted.push(item);
+    usedCategories.add(mainCategory);
+  }
+  if (filteredAndSorted.length === 3) break;
+}
+if (filteredAndSorted.length < 3) {
   for (const item of sortedCandidates) {
-    const mainCategory = item.rest.category.split(" > ")[0];
-    if (!usedCategories.has(mainCategory) || filteredAndSorted.length === 0) {
-      filteredAndSorted.push(item);
-      usedCategories.add(mainCategory);
-    }
     if (filteredAndSorted.length === 3) break;
+    if (!filteredAndSorted.includes(item)) filteredAndSorted.push(item);
   }
-  if (filteredAndSorted.length < 3) {
-    for (const item of sortedCandidates) {
-      if (filteredAndSorted.length === 3) break;
-      if (!filteredAndSorted.includes(item)) filteredAndSorted.push(item);
-    }
-  }
+}
 
-  let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
-    filteredAndSorted.map(({ rest }) => {
-      const categoryLeaf = rest.category.split(" > ").pop() || "";
-      const isGenericMenu = !rest.menu_preview[0] || rest.menu_preview[0] === categoryLeaf || rest.menu_preview[0].length < 3;
-      const defaultMenu = isGenericMenu ? "오늘의 추천 메뉴" : rest.menu_preview[0];
-      return {
-        name: rest.name,
-        recommended_menu: defaultMenu,
-        toss_comment: generateDynamicComment(rest, muckBti, detectedMealType),
-        category: rest.category.split(" > ").pop() || rest.category,
-        address: rest.address
-      };
-    });
+// 3. 최종 선정된 식당들만 Naver 매칭
+const naverClientId = process.env.NAVER_CLIENT_ID;
+const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
+const naverMatchMap = new Map<string, { rating: number; photo_url: string | null }>();
+const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
+
+await Promise.all(
+  topRestaurantsToMatch.map(async (rest) => {
+    if (naverClientId && naverClientSecret) {
+      try {
+        const searchQuery = `${rest.name} ${rest.address.split(" ").slice(0, 2).join(" ")}`;
+        const localUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(searchQuery)}&display=1`;
+        const localRes = await fetch(localUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
+        const localData: any = await localRes.json();
+        if (localData.items && localData.items.length > 0) {
+  const matchedItem = localData.items[0];
+  const cleanedTitle = matchedItem.title.replace(/<\/?[^>]+(>|$)/g, "");
+  let photoUrl: string | null = null;
+  
+  // ... (중간 이미지 검색 fetch 로직 생략) ...
+
+  // 1. 네이버가 준 상세 카테고리(ex: "일식>초밥,롤")에서 맨 뒤 단어만 쏙 뽑기
+  const naverCategory = matchedItem.category || "";
+  const naverMenuGuess = naverCategory.split(">").pop() || "";
+
+  // 2. Map에 menu_guess도 함께 저장하기
+  naverMatchMap.set(rest.name, { 
+    rating: getDeterministicRating(rest.name), 
+    photo_url: photoUrl,
+    menu_guess: naverMenuGuess // <-- 이 줄 추가!
+  });
+}
+      } catch (e) {
+        console.error(`Naver match failed for ${rest.name}:`, e);
+      }
+    } else {
+      const hashVal = rest.name.charCodeAt(0) + rest.name.charCodeAt(rest.name.length - 1);
+      if (hashVal % 2 === 0) naverMatchMap.set(rest.name, { rating: getDeterministicRating(rest.name), photo_url: null });
+    }
+  })
+);
+
+let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
+  filteredAndSorted.map(({ rest }) => {
+    const categoryLeaf = rest.category.split(" > ").pop() || "";
+    const realMenus = rest.menu_preview.filter(m =>
+      m.length >= 2 &&
+      m !== categoryLeaf &&
+      !m.includes(">") &&
+      !/^[가-힣]{1,2}$/.test(m)
+    );
+
+    // [수정] 네이버에서 가공해 둔 세부 카테고리 메뉴가 있다면 가져오기
+    const naverMatch = naverMatchMap.get(rest.name);
+    const naverMenu = naverMatch && 'menu_guess' in naverMatch ? (naverMatch as any).menu_guess : "";
+
+    // 기존 realMenus에 값이 없다면 네이버 세부 카테고리를 최종 메뉴로 낙점!
+    const recommended_menu = realMenus[0] || naverMenu || "";
+
+    return {
+      name: rest.name,
+      recommended_menu,                 
+      toss_comment: generateDynamicComment(rest, muckBti, detectedMealType),
+      category: rest.category,  
+      address: rest.address
+    };
+});
 
   let recSource: "gemini" | "fallback" = "fallback";
 

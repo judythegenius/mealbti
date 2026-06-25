@@ -93,22 +93,29 @@ app.post("/api/location-search", async (req, res) => {
 });
 
 app.post("/api/recommendations", (req, res) => {
-  const { location, guests, excludedFoods } = req.body;
+  console.log("Received request body:", JSON.stringify(req.body, null, 2));
+  try {
+    const { muckBti, latitude, longitude, groupSize, yesterdayFood, searchRadiusM, location_source, addressText, excludeNames, categoryOverride } = req.body;
 
-  if (!location?.address) {
-    return res.status(400).json({ error: "location.address is required" });
-  }
+    // For now, map the incoming data to the expected format if needed by sampleRecommendations
+    const location = { address: addressText || "알 수 없는 주소", lat: latitude, lon: longitude };
 
-  const recommendations = sampleRecommendations.filter((item) => {
-    if (!excludedFoods || typeof excludedFoods !== "string") {
-      return true;
+    if (!location?.address) {
+      return res.status(400).json({ error: "location.address is required" });
     }
-    return !item.tags.some((tag) =>
-      excludedFoods.toLowerCase().includes(tag.toLowerCase()),
-    );
-  });
 
-  return res.json({ location, guests, recommendations });
+    const recommendations = sampleRecommendations.filter((item) => {
+      // Basic filter logic using available data
+      if (yesterdayFood && item.tags.includes(yesterdayFood)) return false;
+      if (excludeNames && excludeNames.includes(item.name)) return false;
+      return true;
+    });
+
+    return res.json({ location, guests: groupSize, recommendations });
+  } catch (error) {
+    console.error("Error in /api/recommendations:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 const port = process.env.PORT ?? 4000;
