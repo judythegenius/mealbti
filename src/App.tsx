@@ -11,7 +11,6 @@ import CharacterCard from "./components/CharacterCard";
 import MyProfile from "./components/MyProfile";
 import RecommendationList from "./components/RecommendationList";
 import { Utensils, Sliders, ChevronDown, AlertCircle, MapPin, Search, X } from "lucide-react";
-import { useGeolocation, Accuracy } from "./web-framework";
 
 function getSkyBg(): { from: string; label: string } {
   const h = new Date().getHours();
@@ -273,7 +272,7 @@ const handleTestComplete = (testMbti: MuckBti) => {
   return (
     <div className={`min-h-screen bg-gradient-to-b ${sky.from} text-[#1A1A2E] flex flex-col font-sans pb-24`} id="theme-root">
 
-      {/* ── 헤더 ── */}
+      /* ── 헤더 ── */
       <header className="w-full max-w-md mx-auto sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-white/40 shadow-sm">
         <div className="px-5 pt-4 pb-3">
           <div className="flex items-start justify-between gap-2">
@@ -290,7 +289,7 @@ const handleTestComplete = (testMbti: MuckBti) => {
             )}
           </div>
 
-          {/* 검색창 */}
+          /* 검색창 */
           {(tab === "recommend" || tab === "test" || tab === "resultCard") && (
             <div className="mt-3 relative">
               <div className={`flex items-center gap-2 bg-gray-50 border rounded-2xl px-3 py-2.5 transition-all ${isSearchFocused ? "border-[#3182F6] bg-white ring-1 ring-[#3182F6]/20" : "border-gray-200"}`}>
@@ -316,7 +315,7 @@ const handleTestComplete = (testMbti: MuckBti) => {
                 </button>
               </div>
 
-              {/* 자동완성 드롭다운 */}
+              /* 자동완성 드롭다운 */
               {isSearchFocused && searchSuggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-50">
                   {searchSuggestions.slice(0, 6).map((item, i) => (
@@ -339,10 +338,10 @@ const handleTestComplete = (testMbti: MuckBti) => {
         </div>
       </header>
 
-      {/* ── 메인 ── */}
+      /* ── 메인 ── */
       <main className="flex-1 w-full max-w-md mx-auto px-4 pt-4 pb-6 flex flex-col gap-4">
 
-        {/* 공유 결과 */}
+         /* 공유 결과 */
         {tab === "sharedResult" && sharedCharacter && sharedMbti && (
   <div className="w-full flex flex-col gap-4">
     {/* 상단 안내 배너 — 공유 링크 클릭 시 처음 보이는 화면 */}

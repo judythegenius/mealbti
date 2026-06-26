@@ -1205,5 +1205,5 @@ async function startServer() {
     res.send(html);
   });
 }
-
+}
 startServer();
