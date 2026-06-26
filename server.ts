@@ -1206,4 +1206,13 @@ async function startServer() {
   });
 }
 }
-startServer();
+startServer()
+  .then(() => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server listening on ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
