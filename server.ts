@@ -741,6 +741,8 @@ function generateDynamicComment(
   if (mbti.drink >= 4 && mealType === "저녁") {
     return `${mainMenu || "메뉴"} 한 점에 가볍게 한 잔, 오늘 저녁 이 이상 필요 없어요`;
   }
+
+  const catLeaf = cat.split(" > ").pop() || "맛집";
  if (mbti.speed <= 2) {
   const speedComments = [
     `${name}에서 빠르게 해결하고 여유 시간을 만들어보세요`,
@@ -753,12 +755,7 @@ if (mbti.speed >= 4) {
   return `${name}에서 서두르지 않고 음식 하나하나를 제대로 즐기는 시간이에요`;
 }
 
-  if (mbti.speed <= 2) {
-    return `${name}에서 서두르지 않고 음식 하나하나를 제대로 즐기는 시간이에요`;
-  }
-
   // 최종 fallback - 식당명 + 카테고리 활용
-  const catLeaf = cat.split(" > ").pop() || "맛집";
   const fallbacks = [
     `${name}의 ${catLeaf}, 오늘 선택을 후회하지 않을 거예요`,
     `${mainMenu || catLeaf} 한 그릇으로 오늘 하루 충전 완료예요`,
