@@ -124,14 +124,11 @@ export default function App() {
     else setMealType("야식");
   }, []);
 
-  useEffect(() => {
-    // [수정] coordinates(위경도)와 mbti는 물론, 주소(addressText)가 완전히 로드될 때까지 
-    // 혹은 초기 상태("위치 확인 중...")를 벗어날 때까지 백엔드 호출을 대기시킵니다.
-    if (!coordinates || !addressText || addressText === "위치 확인 중...") return;
-
-    const timer = setTimeout(() => fetchRecommendations(false), 500);
-    return () => clearTimeout(timer);
-  }, [coordinates, mbti, mealType, groupSize, yesterdayFood, searchRadiusM, selectedCategories, addressText]); // <-- 의존성 배열에 addressText 추가
+useEffect(() => {
+  if (!coordinates) return;
+  const timer = setTimeout(() => fetchRecommendations(false), 300);
+  return () => clearTimeout(timer);
+}, [coordinates, mbti, mealType, groupSize, yesterdayFood, searchRadiusM, selectedCategories]);
 
   const syncAddress = async (lat: number, lon: number) => {
     try {
@@ -222,7 +219,7 @@ export default function App() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           muckBti: mbti, latitude: coordinates.lat, longitude: coordinates.lon,
-          groupSize, yesterdayFood, searchRadiusM, location_source: locationSource, addressText,
+          groupSize, yesterdayFood, searchRadiusM, location_source: locationSource, addressText: addressText === "위치 확인 중..." ? "" : addressText,
          excludeNames: isLoadMore ? restaurants.map(r => r.name) : [],
           categoryOverride: selectedCategories.length > 0 ? selectedCategories : null
         }),
