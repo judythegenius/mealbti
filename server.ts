@@ -193,7 +193,7 @@ async function generateCommentsWithRetry(ai: any, commentPrompt: string, retries
   for (let i = 0; i <= retries; i++) {
     try {
       const res = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash-8b",
         contents: commentPrompt,
         config: { temperature: 0.8, responseMimeType: "application/json" }
       });
@@ -312,37 +312,211 @@ function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
   return ["한식", "파스타", "국밥", "초밥", "버거", "쌀국수", "비빔밥", "카레", "태국음식", "중식"];
 }
 
-function generateDynamicComment(rest: { category: string }, mbti: MuckBti, mealType: string): string {
+
+function generateDynamicComment(
+  rest: { name: string; category: string; menu_preview: string[] },
+  mbti: MuckBti,
+  mealType: string
+): string {
   const cat = rest.category || "";
-  const candidates: string[] = [];
+  const menus = rest.menu_preview || [];
+  const name = rest.name || "";
+  const mainMenu = menus[0] || "";
+  const subMenu = menus[1] || "";
 
-  if (mbti.health === "loss" && (cat.includes("샐러드") || cat.includes("베트남") || cat.includes("두부")))
-    candidates.push("가볍고 깔끔하게, 몸도 기분도 리셋되는 한 끼예요 🥗");
-  if (mbti.health === "gain" && (cat.includes("고기") || cat.includes("갈비") || cat.includes("단백")))
-    candidates.push("오늘 운동 보상은 여기서, 든든한 단백질 충전소예요 💪");
-  if (mbti.spicy >= 4 && (cat.includes("마라") || cat.includes("매운") || cat.includes("낙지")))
-    candidates.push("얼얼하게 번지는 매운맛으로 하루 스트레스 날려버리세요 🌶️");
-  if (mbti.spicy <= 2 && (cat.includes("브런치") || cat.includes("카페") || cat.includes("양식")))
-    candidates.push("자극 없이 부드럽게, 오늘 입맛에 딱 맞는 선택이에요 ☕");
-  if (mbti.fullness >= 4 && (cat.includes("국밥") || cat.includes("갈비") || cat.includes("찜")))
-    candidates.push("든든하게 속을 채워줄 오늘의 최선이에요. 배부르게 드세요 🍲");
-  if (mbti.salty >= 4 && (cat.includes("족발") || cat.includes("찌개") || cat.includes("장")))
-    candidates.push("짭짤하고 깊은 감칠맛, 오늘 그 한입이 딱 당기실 거예요 🧂");
-  if (mbti.drink >= 4 && mealType === "저녁" && (cat.includes("주점") || cat.includes("안주") || cat.includes("포차")))
-    candidates.push("반주 한 잔 곁들이기 딱 좋은 안주 라인업이에요 🍺");
-  if (mbti.speed >= 4 && (cat.includes("분식") || cat.includes("패스트") || cat.includes("버거")))
-    candidates.push("빠르게 먹고 빠르게 충전, 오늘 여기서 해결하세요 ⚡");
-  if (mbti.speed <= 2 && (cat.includes("코스") || cat.includes("오마카세") || cat.includes("파인")))
-    candidates.push("여유롭게 즐기는 한 상, 오늘은 천천히 음미해보세요 🕊️");
-  if (cat.includes("브런치") || cat.includes("카페")) candidates.push("공간까지 맛있는 곳, 여유로운 한 끼 즐겨보세요 ✨");
-  if (cat.includes("한식")) candidates.push("오늘 같은 날엔 역시 집밥 같은 한식이 최고예요 🍚");
-  if (cat.includes("일식")) candidates.push("정갈하고 섬세한 일식으로 기분 좋게 채워보세요 🍣");
-  if (cat.includes("중식")) candidates.push("풍성한 중식 한 상으로 오늘도 힘차게 달려보세요 🥢");
-  if (cat.includes("양식")) candidates.push("오늘은 조금 특별하게, 양식으로 기분 전환 어때요 🍝");
-  if (cat.includes("치킨")) candidates.push("바삭하고 든든한 한 끼, 오늘 기분 업 시켜줄 거예요 🍗");
+  // ── 메뉴명 기반 섬세한 코멘트 풀 ──────────────────────────────────
 
-  if (candidates.length === 0) return `먹BTI 성향과 잘 맞는 ${cat.split(" > ").pop()} 맛집이에요 ✨`;
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  const menuComments: Record<string, string[]> = {
+    "쌀국수": [
+      `${mainMenu}의 맑고 깊은 육수가 속을 따뜻하게 감싸줄 거예요`,
+      "쌀국수 특유의 부드러운 면발과 향긋한 고수 향이 오늘 하루를 리셋시켜줄 거예요",
+      "가볍지만 든든한 쌀국수 한 그릇, 오늘 오후를 버티게 해줄 에너지예요"
+    ],
+    "냉면": [
+      "탱글탱글한 면발에 새콤달콤한 육수, 지금 이 계절에 딱 맞는 선택이에요",
+      `${mainMenu} 한 그릇이면 더위도 피로도 한방에 날아가요`,
+      "질 좋은 메밀 향이 코끝을 자극하는, 정직한 맛집이에요"
+    ],
+    "마라탕": [
+      "얼얼하게 혀를 감싸는 마라 향, 오늘 스트레스를 불태울 준비 됐나요?",
+      `${mainMenu}의 기름진 감칠맛과 화끈한 매운맛이 중독적으로 당기는 날이에요`,
+      "한 숟가락 뜨는 순간 입 안 가득 퍼지는 마라 향, 오늘 여기가 맞아요"
+    ],
+    "삼겹살": [
+      "불판 위에서 지글지글 익어가는 소리만으로도 배고파지는 곳이에요",
+      `${mainMenu} 한 점에 쌈 한 장, 오늘 이 조합을 거부할 이유가 없어요`,
+      "두툼하게 썬 고기와 김치의 조화, 오늘 저녁은 여기서 마음껏 드세요"
+    ],
+    "곱창": [
+      "특유의 고소하고 진한 내장 향이 진짜 단골 맛집의 증거예요",
+      `${mainMenu}의 쫄깃한 식감이 소주 한 잔을 절로 부르는 날이에요`,
+      "어른들이 아는 진짜 맛, 한 점 씹을 때마다 깊은 감칠맛이 올라와요"
+    ],
+    "초밥": [
+      "장인이 한 점씩 쥐어낸 샤리와 네타의 온도 차가 입 안에서 완성돼요",
+      `${mainMenu}의 윤기 있는 밥알과 신선한 토핑이 오늘 특별한 한 끼를 만들어줄 거예요`,
+      "군더더기 없이 정갈한 스시 한 점, 오늘만큼은 느긋하게 음미해보세요"
+    ],
+    "라멘": [
+      "몇 시간 우려낸 진한 육수가 면발에 스며든 걸 한 입에 느껴보세요",
+      `${mainMenu}의 농후한 돈코츠 향이 문 앞에서부터 발길을 붙잡아요`,
+      "탱탱하게 삶아낸 면과 부드러운 차슈, 오늘 위로가 필요한 날이에요"
+    ],
+    "돈까스": [
+      "겉은 바삭, 속은 촉촉한 커틀릿의 정석을 오늘 여기서 만나보세요",
+      `${mainMenu}의 두꺼운 두께감이 한 입 베어 물면 육즙을 터뜨려줄 거예요`,
+      "경양식 돈까스 특유의 소스와 함께라면 밥 한 공기 거뜬해요"
+    ],
+    "칼국수": [
+      "직접 밀어낸 넓적한 면발에 진한 멸치 육수, 어머니 손맛이 그리운 날이에요",
+      `${mainMenu} 한 그릇이면 속이 따끈하게 채워지는 느낌이에요`,
+      "졸깃한 생면과 구수한 국물이 빈속을 포근하게 감싸줘요"
+    ],
+    "비빔밥": [
+      "형형색색의 나물과 고슬고슬한 밥, 비벼 먹는 순간 맛의 하모니가 시작돼요",
+      `${mainMenu}에 고추장 한 숟가락 넣고 쓱쓱 비비면 오늘 점심 끝이에요`,
+      "신선한 채소와 참기름 향이 어우러진 한 그릇, 건강하게 충전하는 날이에요"
+    ],
+    "갈비": [
+      "불 위에서 직화로 구워지는 갈비 향이 코끝을 자극하는 곳이에요",
+      `${mainMenu}의 두툼한 살점이 뼈에서 떨어질 때의 쾌감, 오늘 여기서 느껴보세요`,
+      "양념이 잘 밴 갈비 한 대, 오늘 수고한 자신에게 주는 선물이에요"
+    ],
+    "국밥": [
+      "뜨끈한 국물 한 숟가락이면 어제 피로가 싹 풀리는 기적의 한 그릇이에요",
+      `${mainMenu}의 묵직한 뼈 육수가 속을 든든하게 채워줄 거예요`,
+      "새벽부터 우려낸 국물의 깊이, 한 끼가 이렇게 위로가 될 줄 몰랐을 거예요"
+    ],
+    "파스타": [
+      "알덴테로 삶아낸 면에 소스가 윤기 있게 코팅된 비주얼부터 시작돼요",
+      `${mainMenu}의 풍성한 소스가 입 안을 가득 채우는 이탈리안의 정수예요`,
+      "오늘만큼은 서울 한복판에서 유럽 어딘가의 점심을 즐겨보세요"
+    ],
+    "브런치": [
+      `${mainMenu}와 따뜻한 커피 한 잔, 오늘 아침만큼은 여유롭게 시작해보세요`,
+      "예쁜 플레이팅에 담긴 브런치 한 상, 먹기 전에 사진 한 장은 필수예요",
+      "에그 베네딕트의 흘러내리는 홀랜다이즈 소스가 오늘 아침을 특별하게 만들어줄 거예요"
+    ],
+    "샐러드": [
+      "신선한 재료 본연의 맛을 살린 드레싱, 가볍지만 만족스러운 한 끼예요",
+      `${mainMenu}의 알록달록한 색감이 입맛을 돋우고 영양도 챙겨줘요`,
+      "오늘은 몸이 원하는 걸 먹는 날, 신선한 한 그릇으로 속을 깨끗하게 비워보세요"
+    ],
+    "족발": [
+      "쫀득하게 삶아낸 껍데기와 부드러운 살점의 조화, 오늘 야식 고민 끝이에요",
+      `${mainMenu}에 새우젓 한 점 곁들이면 소주 한 병이 순식간에 사라져요`,
+      "콜라겐 듬뿍 함유된 족발, 맛있게 먹으면서 피부까지 챙기는 현명한 선택이에요"
+    ],
+    "보쌈": [
+      "부드럽게 삶아낸 수육을 배추에 싸 먹는 그 순간, 진짜 한국 음식의 매력이에요",
+      `${mainMenu}에 굴젓이나 새우젓을 얹으면 완성되는 조화, 어른들의 음식이에요`,
+      "담백하게 삶은 돼지고기와 김치의 시원한 신맛, 오늘 이 맛이 생각날 거예요"
+    ],
+    "치킨": [
+      "갓 튀겨낸 바삭한 껍데기를 베어 무는 순간의 행복, 오늘 여기서 느껴봐요",
+      `${mainMenu}의 매콤달콤한 소스가 손가락을 절로 핥게 만드는 집이에요`,
+      "황금빛으로 튀겨낸 치킨 한 마리, 오늘 수고한 자신에게 주는 작은 축제예요"
+    ],
+    "버거": [
+      "두툼한 패티와 신선한 채소가 층층이 쌓인 비주얼, 한 입 크게 베어 물어야 해요",
+      `${mainMenu}의 육즙이 터지는 순간, 다른 버거는 생각도 안 날 거예요`,
+      "수제 패티의 고기 향과 갓 구운 번의 조화, 패스트푸드와는 차원이 달라요"
+    ],
+    "떡볶이": [
+      "쫀득쫀득한 떡이 매콤달콤한 소스를 머금은 그 맛, 한국인의 소울푸드예요",
+      `${mainMenu}의 빨간 국물에 어묵 국물 한 모금이면 오늘 한 끼가 완성돼요`,
+      "매운 걸 좋아하는 사람이라면 이 집 떡볶이 소스에 반할 거예요"
+    ],
+    "짜장면": [
+      "춘장의 구수한 향이 깊게 밴 소스와 탱탱한 면발, 중화요리의 정석이에요",
+      `${mainMenu} 위에 달걀 프라이 하나 얹으면 이 이상의 점심은 없어요`,
+      "면과 소스를 비벼 먹기 전 잠깐 비주얼 감상, 그게 또 재미예요"
+    ],
+    "짬뽕": [
+      "얼큰하고 시원한 국물 한 숟가락이면 왜 이 집이 유명한지 바로 알게 돼요",
+      `${mainMenu}의 풍성한 해물과 채소가 국물에 녹아든 깊은 맛이에요`,
+      "빨간 국물 위에 떠 있는 해산물의 비주얼만으로도 입에 침이 고이는 집이에요"
+    ],
+    "오마카세": [
+      "셰프의 선택을 믿고 앉아있으면 오늘 저녁이 특별해지는 경험이에요",
+      `${mainMenu} 코스 한 편, 계절 식재료로 이야기를 풀어내는 맛의 여정이에요`,
+      "한 접시 한 접시 설명을 들으며 먹는 시간, 오늘만큼은 시간을 사는 거예요"
+    ],
+    "곰탕": [
+      "몇 날 며칠을 우려낸 뼈 국물의 깊이, 첫 숟가락에 그 정성이 느껴져요",
+      `${mainMenu}에 소금 간 살짝 하면 완성되는 담백함, 이게 진짜 한식이에요`,
+      "뽀얗게 우러난 국물과 부드러운 고기, 오늘 속이 비었다면 여기예요"
+    ],
+  };
+
+  // 메뉴 키워드 매칭
+  for (const [keyword, comments] of Object.entries(menuComments)) {
+    const matched = menus.some(m => m.includes(keyword)) || mainMenu.includes(keyword) || cat.includes(keyword);
+    if (matched) {
+      return comments[Math.floor(Math.random() * comments.length)];
+    }
+  }
+
+  // ── 카테고리 + 성향 복합 코멘트 (메뉴 키워드 미매칭 시) ──────────────
+
+  // 아침/브런치 시간대
+  if (mealType === "아침") {
+    if (cat.includes("카페") || cat.includes("베이커리")) return `${name}의 갓 구운 빵 향과 커피 한 잔으로 오늘 하루를 시작해보세요`;
+    if (cat.includes("한식")) return `${mainMenu || "따뜻한 국물"} 한 그릇으로 아침을 든든하게 채워보세요`;
+    return `이른 아침, ${name}에서 조용하고 여유로운 한 끼로 하루를 열어보세요`;
+  }
+
+  // 야식 시간대
+  if (mealType === "야식") {
+    if (mbti.drink >= 4) return `${mainMenu || "안주"} 한 접시에 한 잔 걸치기 딱 좋은 밤이에요`;
+    if (cat.includes("치킨")) return "야식의 왕, 치킨. 오늘 밤 자책 없이 즐겨도 돼요";
+    return `늦은 밤 ${name}에서 오늘 하루의 마무리를 맛있게 해보세요`;
+  }
+
+  // 건강 목표별
+  if (mbti.health === "loss") {
+    if (cat.includes("한식") || cat.includes("가정식")) return `${mainMenu || "담백한 메뉴"}로 칼로리 걱정 없이 든든하게 한 끼 해결해요`;
+    return `가볍고 깔끔하게, 오늘 식단 목표를 지켜가면서도 맛있는 한 끼예요`;
+  }
+  if (mbti.health === "gain") {
+    return `${mainMenu || "고단백 메뉴"} 한 상으로 오늘 운동 후 영양을 빠르게 보충해보세요`;
+  }
+  if (mbti.health === "sugar") {
+    return `정갈하고 자극 없는 ${name}의 한 상, 혈당 걱정 없이 맛있게 드세요`;
+  }
+
+  // 성향별 복합
+  if (mbti.spicy >= 4 && mbti.fullness >= 4) {
+    return `${name}에서 화끈하고 든든하게, 오늘 가장 확실한 한 끼예요`;
+  }
+  if (mbti.spicy >= 4) {
+    return `${mainMenu || "매콤한 메뉴"}의 칼칼한 맛이 입 안을 깨우는 경험이에요`;
+  }
+  if (mbti.spicy <= 2 && mbti.salty <= 2) {
+    return `자극 없이 재료 본연의 맛을 살린 ${name}, 오늘 속이 편해질 거예요`;
+  }
+  if (mbti.fullness >= 4) {
+    return `${mainMenu || "메인 메뉴"} 한 상 앞에 앉으면 빈속 걱정은 끝이에요`;
+  }
+  if (mbti.drink >= 4 && mealType === "저녁") {
+    return `${mainMenu || "메뉴"} 한 점에 가볍게 한 잔, 오늘 저녁 이 이상 필요 없어요`;
+  }
+  if (mbti.speed >= 4) {
+    return `빠르게 주문, 빠르게 나오는 ${name}. 오늘 점심시간을 낭비하지 마세요`;
+  }
+  if (mbti.speed <= 2) {
+    return `${name}에서 서두르지 않고 음식 하나하나를 제대로 즐기는 시간이에요`;
+  }
+
+  // 최종 fallback - 식당명 + 카테고리 활용
+  const catLeaf = cat.split(" > ").pop() || "맛집";
+  const fallbacks = [
+    `${name}의 ${catLeaf}, 오늘 선택을 후회하지 않을 거예요`,
+    `${mainMenu || catLeaf} 한 그릇으로 오늘 하루 충전 완료예요`,
+    `${name}에서만 느낄 수 있는 그 맛, 오늘 직접 확인해보세요`,
+    `${catLeaf} 중에서도 ${name}이 오늘 당신의 먹BTI에 딱 맞아요`,
+  ];
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
 
 // ===================== Routes =====================
@@ -651,46 +825,49 @@ app.post("/api/recommend", async (req, res) => {
             }
           }
 
-          if (finalLocalData.items && finalLocalData.items.length > 0) {
-            console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, finalLocalData.items[0].title);
-            const matchedItem = finalLocalData.items[0];
-            const cleanedTitle = matchedItem.title.replace(/<\/?[^>]+(>|$)/g, "");
-            let photoUrl: string | null = null;
+ // Local 매칭 성공 여부 로그
+if (finalLocalData.items && finalLocalData.items.length > 0) {
+  console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, finalLocalData.items[0].title);
+} else {
+  console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
+}
 
-            try {
-              const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(cleanedTitle + " 음식")}&display=1&filter=large`;
-              const imageRes = await fetch(imageUrl, {
-                headers: {
-                  "X-Naver-Client-Id": naverClientId,
-                  "X-Naver-Client-Secret": naverClientSecret
-                }
-              });
-              const imageData: any = await imageRes.json();
-              console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
-              if (imageData.items && imageData.items.length > 0) {
-                const originalUrl = imageData.items[0].link;
-                photoUrl = `/api/image-proxy?url=${encodeURIComponent(originalUrl)}`;
-              }
-            } catch (imgErr) {
-              console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
-            }
+// Local 성공 여부와 무관하게 Image 검색은 항상 시도
+let photoUrl: string | null = null;
+try {
+  const imageQuery = (finalLocalData.items?.length > 0)
+    ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
+    : rest.name + " 맛집";
 
-            const naverCategory = matchedItem.category || "";
-            const naverMenuGuess = naverCategory.split(">").pop()?.trim() || "";
-            naverMatchMap.set(rest.name, {
-              rating: getDeterministicRating(rest.name),
-              photo_url: photoUrl,
-              menu_guess: naverMenuGuess
-            });
-          } else {
-            console.log(`[Naver Local] ${rest.name} 매칭 최종 실패 (시도한 검색어 목록: ${JSON.stringify(uniqueQueries)})`);
-          }
-        } catch (e) {
-          console.error(`Naver match failed for ${rest.name}:`, e);
-        }
-      })
-    );
+  const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=1&filter=large`;
+  const imageRes = await fetch(imageUrl, {
+    headers: {
+      "X-Naver-Client-Id": naverClientId,
+      "X-Naver-Client-Secret": naverClientSecret
+    }
+  });
+  const imageData: any = await imageRes.json();
+  console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
+  if (imageData.items && imageData.items.length > 0) {
+    const originalUrl = imageData.items[0].link;
+    photoUrl = `/api/image-proxy?url=${encodeURIComponent(originalUrl)}`;
   }
+} catch (imgErr) {
+  console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
+}
+
+// 항상 Map에 저장
+naverMatchMap.set(rest.name, {
+  rating: getDeterministicRating(rest.name),
+  photo_url: photoUrl,
+  menu_guess: finalLocalData.items?.[0]?.category?.split(">").pop()?.trim() || ""
+});
+      } catch (e) {
+        console.error(`Naver match failed for ${rest.name}:`, e);
+      }
+    })
+  );
+}
   
   let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
     filteredAndSorted.map(({ rest }) => {
@@ -706,29 +883,6 @@ app.post("/api/recommend", async (req, res) => {
     });
 
   let recSource: "gemini" | "fallback" = "fallback";
-
-  if (process.env.GEMINI_API_KEY && curateResults.length > 0) {
-    try {
-      const ai = getAi();
-      const commentPrompt = `사용자 먹BTI: 맵기${muckBti.spicy} 포만감${muckBti.fullness} 짠맛${muckBti.salty} 음주${muckBti.drink} 건강목표${muckBti.health} 식사시간${detectedMealType}
-아래 식당 ${curateResults.length}곳에 토스 앱 스타일의 위트있고 친근한 한국어 추천 코멘트를 각각 한 문장씩 작성해줘.
-코멘트는 사용자 성향을 반영해서 자연스럽게 써줘. 마크다운 없이 JSON 배열만 반환해.
-${curateResults.map(r => `- ${r.name} (${r.category})`).join("\n")}
-형식: [{"name":"식당명","comment":"코멘트"}]`;
-  let cleaned = (await generateCommentsWithRetry(ai, commentPrompt)).trim();  // ← 이렇게 변경
-    if (cleaned.startsWith("```")) cleaned = cleaned.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-    const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      curateResults = curateResults.map(r => {
-        const match = parsed.find((p: any) => p.name === r.name);
-        return match && match.comment ? { ...r, toss_comment: match.comment } : r;
-      });
-      recSource = "gemini";
-    }
-  } catch (e: any) {
-    console.error("[Error] Gemini 코멘트 실패:", e?.message || e?.status || JSON.stringify(e));
-  }
-}
 
   const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
     const original = rawNearby.find(r => r.name === cur.name);
