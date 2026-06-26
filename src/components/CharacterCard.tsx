@@ -37,6 +37,20 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
 
   const handleShareLink = async () => {
     const shareUrl = getSharingUrl();
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "나의 먹BTI",
+          text: `나는 [${character.name}]! 너도 확인해봐 👀`,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        // 취소/미지원 시 아래로 폴백
+      }
+    }
+
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(shareUrl);

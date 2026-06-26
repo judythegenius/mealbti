@@ -56,19 +56,6 @@ export default function App() {
   const [addressText, setAddressText] = useState<string>("위치 확인 중...");
   const [gpsStatus, setGpsStatus] = useState<"not_requested" | "requesting" | "granted" | "denied" | "timeout" | "unsupported">("not_requested");
 
-  const platformLocation = useGeolocation({ accuracy: Accuracy.Highest, timeInterval: 5000, distanceInterval: 10 });
-
-  useEffect(() => {
-    if (platformLocation?.latitude && platformLocation?.longitude && locationSource !== "manual") {
-      const lat = platformLocation.latitude;
-      const lon = platformLocation.longitude;
-      setCoordinates({ lat, lon });
-      setLocationSource("gps");
-      setGpsStatus("granted");
-      syncAddress(lat, lon);
-    }
-  }, [platformLocation, locationSource]);
-
   // 자동완성
   useEffect(() => {
     if (searchInput.trim().length < 1) { setSearchSuggestions([]); return; }

@@ -698,8 +698,17 @@ await Promise.all(
   const matchedItem = localData.items[0];
   const cleanedTitle = matchedItem.title.replace(/<\/?[^>]+(>|$)/g, "");
   let photoUrl: string | null = null;
-  
-  // ... (중간 이미지 검색 fetch 로직 생략) ...
+
+   try {
+            const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(cleanedTitle)}&display=1`;
+            const imageRes = await fetch(imageUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
+            const imageData: any = await imageRes.json();
+            if (imageData.items && imageData.items.length > 0) {
+              photoUrl = imageData.items[0].link;
+            }
+          } catch (imgErr) {
+            console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
+          }
 
   // 1. 네이버가 준 상세 카테고리(ex: "일식>초밥,롤")에서 맨 뒤 단어만 쏙 뽑기
   const naverCategory = matchedItem.category || "";
@@ -722,6 +731,7 @@ await Promise.all(
   })
 );
 
+// 4. 메뉴는 실제 데이터 없는 경우 빈 값 처리 (카테고리/네이버 추정으로 끼워맞추지 않음)
 let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
   filteredAndSorted.map(({ rest }) => {
     const categoryLeaf = rest.category.split(" > ").pop() || "";
@@ -731,22 +741,18 @@ let curateResults: { name: string; recommended_menu: string; toss_comment: strin
       !m.includes(">") &&
       !/^[가-힣]{1,2}$/.test(m)
     );
-
-    // [수정] 네이버에서 가공해 둔 세부 카테고리 메뉴가 있다면 가져오기
-    const naverMatch = naverMatchMap.get(rest.name);
-    const naverMenu = naverMatch && 'menu_guess' in naverMatch ? (naverMatch as any).menu_guess : "";
-
-    // 기존 realMenus에 값이 없다면 네이버 세부 카테고리를 최종 메뉴로 낙점!
-    const recommended_menu = realMenus[0] || naverMenu || "";
-
+ 
+    // 실제 메뉴 데이터가 있을 때만 표시, 없으면 빈 문자열 (프론트에서 해당 줄 자체를 숨김)
+    const recommended_menu = realMenus[0] || "";
+ 
     return {
       name: rest.name,
-      recommended_menu,                 
+      recommended_menu,
       toss_comment: generateDynamicComment(rest, muckBti, detectedMealType),
-      category: rest.category,  
+      category: rest.category,
       address: rest.address
     };
-});
+  });
 
   let recSource: "gemini" | "fallback" = "fallback";
 

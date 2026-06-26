@@ -83,8 +83,24 @@ export default function MyProfile({ initialMbti, onUpdate, gpsEnabled, onToggleG
     return `${baseUrl}?mbti=${params}`;
   };
 
-  const handleShare = async () => {
+ const handleShare = async () => {
     const shareUrl = getSharingUrl();
+
+    // 1순위: 네이티브 공유 시트 (모바일에서 카톡/메시지 등 선택 가능)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "나의 먹BTI",
+          text: `나는 [${character.name}]! 너도 확인해봐 👀`,
+          url: shareUrl,
+        });
+        return; // 공유 성공/취소와 무관하게 여기서 종료
+      } catch (err) {
+        // 사용자가 취소했거나 지원 안 되면 아래 클립보드 복사로 폴백
+      }
+    }
+
+    // 2순위: 클립보드 복사 (PC 등 navigator.share 미지원 환경)
     try {
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(shareUrl);
