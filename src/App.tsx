@@ -237,15 +237,26 @@ export default function App() {
     } finally { setIsLoading(false); }
   };
 
+  const handleExpandRadius = () => {
+  setSearchRadiusM(3000);
+  // useEffect가 searchRadiusM 변화를 감지하기 전에 직접 호출
+  setTimeout(() => fetchRecommendations(false), 100);
+};
+
   const handleToggleCategory = (cat: string) => {
     setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   };
 
-  const handleTestComplete = (testMbti: MuckBti) => {
-    setMbti(testMbti);
-    localStorage.setItem("muck_bti_v2", JSON.stringify(testMbti));
-    setTab("resultCard");
-  };
+const handleTestComplete = (testMbti: MuckBti) => {
+  setMbti(testMbti);
+  localStorage.setItem("muck_bti_v2", JSON.stringify(testMbti));
+  // coordinates 없으면 GPS 즉시 요청
+  if (!coordinates) {
+    requestLocation();
+  }
+  setTab("resultCard");
+};
+
 
   const handleProfileUpdate = (updatedMbti: MuckBti) => {
     setMbti(updatedMbti);
@@ -336,13 +347,30 @@ export default function App() {
 
         {/* 공유 결과 */}
         {tab === "sharedResult" && sharedCharacter && sharedMbti && (
-          <div className="w-full">
-            <div className="text-center py-3 bg-blue-50 border border-blue-100 rounded-2xl mb-3">
-              <span className="text-xs font-bold text-[#3182F6]">공유된 친구의 먹BTI 카드</span>
-            </div>
-            <CharacterCard character={sharedCharacter} mbti={sharedMbti} onRestart={clearShareAndStartTest} onExplore={() => {}} isSharedView={true} />
-          </div>
-        )}
+  <div className="w-full flex flex-col gap-4">
+    {/* 상단 안내 배너 — 공유 링크 클릭 시 처음 보이는 화면 */}
+    <div className="bg-gradient-to-br from-[#e8f3ff] to-[#f0f7ff] rounded-[24px] p-5 border border-blue-100 text-center flex flex-col gap-2">
+      <span className="text-3xl">{sharedCharacter.emoji}</span>
+      <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">
+        친구의 먹BTI 카드
+      </h2>
+      <p className="text-sm text-[#3182F6] font-bold">{sharedCharacter.name}</p>
+      <p className="text-xs text-gray-500 leading-relaxed mt-1">
+        친구가 공유한 먹BTI 카드예요.<br />
+        아래에서 카드를 확인하고, 나도 30초만에 검사해보세요!
+      </p>
+    </div>
+
+    <CharacterCard
+      character={sharedCharacter}
+      mbti={sharedMbti}
+      onRestart={clearShareAndStartTest}
+      onExplore={() => {}}
+      isSharedView={true}
+    />
+  </div>
+)}
+
 
         {/* 검사 */}
         {tab === "test" && (
@@ -480,7 +508,7 @@ export default function App() {
 
             <RecommendationList
               restaurants={restaurants} isLoading={isLoading}
-              onExpandRadius={() => setSearchRadiusM(3000)}
+              onExpandRadius={handleExpandRadius}
               onRefresh={() => fetchRecommendations(false)}
               onLoadMore={() => fetchRecommendations(true)}
               radiusM={searchRadiusM}

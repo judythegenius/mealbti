@@ -18,6 +18,7 @@ interface RecommendationListProps {
   onToggleCategory: (category: string) => void;
 }
 
+// ★ 브런치/샐러드 추가, 가로 스크롤로 변경
 const QUICK_CATEGORIES = [
   { label: "한식", emoji: "🍚" },
   { label: "중식", emoji: "🥡" },
@@ -27,25 +28,11 @@ const QUICK_CATEGORIES = [
   { label: "치킨", emoji: "🍗" },
   { label: "피자", emoji: "🍕" },
   { label: "버거", emoji: "🍔" },
+  { label: "브런치", emoji: "🥞" },
+  { label: "샐러드", emoji: "🥗" },
   { label: "멕시칸", emoji: "🌮" },
   { label: "아시안", emoji: "🍜" },
 ];
-
-// RecommendationList.tsx 상단에 추가
-function getCategoryEmoji(category: string): string {
-  if (category.includes("한식") || category.includes("국밥") || category.includes("찌개")) return "🍚";
-  if (category.includes("중식") || category.includes("마라") || category.includes("짜장")) return "🥢";
-  if (category.includes("일식") || category.includes("초밥") || category.includes("라멘")) return "🍣";
-  if (category.includes("양식") || category.includes("파스타") || category.includes("브런치")) return "🍝";
-  if (category.includes("치킨")) return "🍗";
-  if (category.includes("버거") || category.includes("패스트")) return "🍔";
-  if (category.includes("피자")) return "🍕";
-  if (category.includes("분식") || category.includes("떡볶이")) return "🌶️";
-  if (category.includes("베트남") || category.includes("쌀국수")) return "🍜";
-  if (category.includes("주점") || category.includes("맥주")) return "🍺";
-  if (category.includes("샐러드")) return "🥗";
-  return "🍽️";
-}
 
 export default function RecommendationList({
   restaurants,
@@ -59,8 +46,13 @@ export default function RecommendationList({
 }: RecommendationListProps) {
   const hasItems = restaurants && restaurants.length > 0;
 
+  // ★ 가로 스크롤 칩 (overflow-x-auto + flex-nowrap)
   const categoryChips = (
-    <div className="flex flex-wrap gap-1.5" id="quick-category-chips">
+    <div
+      className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide"
+      id="quick-category-chips"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
       {QUICK_CATEGORIES.map((c) => {
         const active = selectedCategories.includes(c.label);
         return (
@@ -82,7 +74,7 @@ export default function RecommendationList({
 
   if (isLoading && !hasItems) {
     return (
-      <div className="w-full flex flex-col gap-6">
+      <div className="w-full flex flex-col gap-4">
         {categoryChips}
         <div className="w-full text-center py-16 flex flex-col justify-center items-center gap-4 animate-pulse">
           <div className="w-12 h-12 rounded-full border-4 border-[#e8f3ff] border-t-[#3182F6] animate-spin" />
@@ -97,7 +89,7 @@ export default function RecommendationList({
 
   if (!isLoading && restaurants.length === 0) {
     return (
-      <div className="w-full flex flex-col gap-6">
+      <div className="w-full flex flex-col gap-4">
         {categoryChips}
         <div className="w-full bg-white border border-gray-150 rounded-3xl p-8 text-center flex flex-col items-center justify-center gap-4 animate-fade-in" id="empty-restaurants-panel">
           <span className="text-4xl">🔍</span>
@@ -144,8 +136,8 @@ export default function RecommendationList({
           <div
             key={`${rest.name}-${index}`}
             id={`restaurant-card-${index}`}
-            className="bg-white rounded-[32px] p-5.5 border border-gray-150/50 shadow-sm flex flex-col gap-4 hover:shadow-md transition-all duration-200 animate-fade-in"
-            style={{ animationDelay: `${index * 0.15}s` }}
+            className="bg-white rounded-[32px] p-5 border border-gray-150/50 shadow-sm flex flex-col gap-4 hover:shadow-md transition-all duration-200 animate-fade-in"
+            style={{ animationDelay: `${index * 0.1}s` }}
           >
             <div className="flex justify-between items-start gap-3">
               <div className="flex-1 min-w-0">
@@ -154,10 +146,7 @@ export default function RecommendationList({
                     {rest.category}
                   </span>
                   {rest.verified_rating && (
-                    <span
-                      className="text-xs bg-amber-50 border border-amber-100 text-amber-600 font-bold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 font-mono"
-                      id={`rating-${rest.name}`}
-                    >
+                    <span className="text-xs bg-amber-50 border border-amber-100 text-amber-600 font-bold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 font-mono">
                       <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {rest.verified_rating}
                     </span>
                   )}
@@ -167,7 +156,7 @@ export default function RecommendationList({
                 </h3>
               </div>
 
-              <div className="text-right shrink-0 flex flex-col items-end" id={`distance-indicator-${rest.name}`}>
+              <div className="text-right shrink-0 flex flex-col items-end">
                 <span className="text-[20px] font-extrabold text-[#3182F6] tracking-tighter leading-none flex items-baseline gap-0.5">
                   {rest.walk_min}
                   <span className="text-xs font-bold text-[#3182F6] tracking-normal">분</span>
@@ -178,29 +167,35 @@ export default function RecommendationList({
               </div>
             </div>
 
+            {/* ★ 사진: verified_photo_url 있을 때만 렌더 + 에러 시 숨김 처리 */}
             {rest.verified_photo_url && (
               <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
-                {console.log("이미지 URL:", rest.verified_photo_url)}
                 <img
                   src={rest.verified_photo_url}
                   alt={rest.name}
                   id={`photo-${rest.name}`}
                   referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                   className="w-full h-full object-cover transition-transform hover:scale-105"
+                  onError={(e) => {
+                    // 이미지 로드 실패 시 부모 div 숨김
+                    const parent = (e.target as HTMLImageElement).closest("div");
+                    if (parent) parent.style.display = "none";
+                  }}
                 />
               </div>
             )}
 
-            <div className="bg-[#F4F9FF] p-4.5 rounded-[20px] border border-blue-100/30">
+            <div className="bg-[#F4F9FF] p-4 rounded-[20px] border border-blue-100/30">
               {rest.recommended_menu && rest.recommended_menu !== "오늘의 추천 메뉴" && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 mb-2">
                   <span className="text-[#3182F6] text-xs font-bold bg-[#e8f3ff] w-5 h-5 rounded-md flex items-center justify-center font-mono shrink-0 select-none">Q</span>
                   <p className="text-[13px] text-[#333D4B] font-bold leading-normal truncate">
                     대표 메뉴: <span className="text-[#3182F6] font-extrabold">{rest.recommended_menu}</span>
                   </p>
                 </div>
               )}
-              <p className={`text-[13px] text-gray-600 leading-relaxed font-normal ${rest.recommended_menu && rest.recommended_menu !== "오늘의 추천 메뉴" ? "mt-2 pl-7 border-l-2 border-blue-150" : ""}`}>
+              <p className="text-[13px] text-gray-600 leading-relaxed font-normal">
                 {rest.toss_comment}
               </p>
             </div>
@@ -210,11 +205,13 @@ export default function RecommendationList({
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-1">
-              <a href={rest.kakao_url} target="_blank" rel="noopener noreferrer" id={`kakao-map-link-${rest.name}`} className="py-3 px-3 bg-[#FCF8E3] hover:bg-[#FBEED5] text-yellow-900 font-bold text-xs rounded-[16px] border border-yellow-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
-                카카오맵으로 보기 <ExternalLink className="w-3.5 h-3.5" />
+              <a href={rest.kakao_url} target="_blank" rel="noopener noreferrer"
+                className="py-3 px-3 bg-[#FCF8E3] hover:bg-[#FBEED5] text-yellow-900 font-bold text-xs rounded-[16px] border border-yellow-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
+                카카오맵 <ExternalLink className="w-3.5 h-3.5" />
               </a>
-              <a href={rest.naver_url} target="_blank" rel="noopener noreferrer" id={`naver-map-link-${rest.name}`} className="py-3 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-emerald-900 font-bold text-xs rounded-[16px] border border-emerald-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
-                네이버맵으로 보기 <ExternalLink className="w-3.5 h-3.5" />
+              <a href={rest.naver_url} target="_blank" rel="noopener noreferrer"
+                className="py-3 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-emerald-900 font-bold text-xs rounded-[16px] border border-emerald-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
+                네이버맵 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
           </div>

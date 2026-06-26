@@ -77,6 +77,7 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
       const dataUrl = await toPng(cardRef.current, {
         backgroundColor: "#ffffff",
         pixelRatio: 2, // 고해상도 캡처
+        cacheBust: true,  // ← 이거 추가
       });
 
       // Web Share API 지원 시 (모바일) - 이미지 직접 공유
