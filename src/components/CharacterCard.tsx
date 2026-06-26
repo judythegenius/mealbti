@@ -31,7 +31,7 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
       mbti.health
     ].join(",");
 
-    const baseUrl = window.location.origin + window.location.pathname;
+    const baseUrl = "https://mealbti.onrender.com";
     return `${baseUrl}?mbti=${params}`;
   };
 

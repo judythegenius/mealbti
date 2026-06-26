@@ -526,20 +526,14 @@ app.get("/api/image-proxy", async (req, res) => {
   const url = req.query.url as string;
   if (!url) return res.status(400).send("url param required");
 
-  // 허용 도메인만 프록시 (보안)
-  const allowed = ["pstatic.net", "naver.net", "daumcdn.net"]; // 끝부분 도메인만 체크
-  let hostname = "";
-  try { hostname = new URL(url).hostname; } catch { return res.status(400).send("invalid url"); }
-  if (!allowed.some(d => hostname.endsWith(d))) {
-    return res.status(403).send("domain not allowed");
-  }
+  // URL 유효성만 체크 (도메인 제한 제거)
+  try { new URL(url); } catch { return res.status(400).send("invalid url"); }
 
   try {
     const response = await fetch(url, {
       headers: { "Referer": "https://search.naver.com/", "User-Agent": "Mozilla/5.0" }
     });
     if (!response.ok) return res.status(response.status).send("upstream error");
-
     const contentType = response.headers.get("content-type") || "image/jpeg";
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=86400");
@@ -839,7 +833,7 @@ try {
     ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
     : rest.name + " 맛집";
 
-  const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=1&filter=large`;
+  const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=5&filter=large`;
   const imageRes = await fetch(imageUrl, {
     headers: {
       "X-Naver-Client-Id": naverClientId,
@@ -849,8 +843,11 @@ try {
   const imageData: any = await imageRes.json();
   console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
   if (imageData.items && imageData.items.length > 0) {
-    const originalUrl = imageData.items[0].link;
-    photoUrl = `/api/image-proxy?url=${encodeURIComponent(originalUrl)}`;
+    const pstaticItem = imageData.items.find((item: any) => 
+      item.link.includes("pstatic.net") || item.link.includes("naver.net")
+    );
+    const bestItem = pstaticItem || imageData.items[0];
+    photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
   }
 } catch (imgErr) {
   console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
@@ -882,8 +879,6 @@ naverMatchMap.set(rest.name, {
       };
     });
 
-  let recSource: "gemini" | "fallback" = "fallback";
-
   const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
     const original = rawNearby.find(r => r.name === cur.name);
     const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null, menu_guess: "" };
@@ -911,8 +906,7 @@ naverMatchMap.set(rest.name, {
     };
   });
 
-  console.log(`[Curation Source] ${recSource} (Demo mode: ${isDemoMode})`);
-  res.json({ restaurants: mergedRestaurants, meal_type: detectedMealType, location_source: req.body.location_source || "gps", address: addressText || "추천 반경 인근", recommendation_source: recSource });
+  res.json({ restaurants: mergedRestaurants, meal_type: detectedMealType, location_source: req.body.location_source || "gps", address: addressText || "추천 반경 인근" });
 });
 
 async function startServer() {
@@ -920,11 +914,50 @@ async function startServer() {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => { res.sendFile(path.join(distPath, "index.html")); });
-  }
-  app.listen(PORT, "0.0.0.0", () => { console.log(`Server starting on port ${PORT}`); });
+  const distPath = path.join(process.cwd(), "dist");
+  app.use(express.static(distPath));
+
+  // OG 태그 동적 생성 - 공유 링크용
+  app.get("*", async (req, res) => {
+    const mbtiParam = req.query.mbti as string;
+    const indexPath = path.join(distPath, "index.html");
+    const fs = await import("fs");
+    let html = fs.readFileSync(indexPath, "utf-8");
+
+    if (mbtiParam) {
+      const parts = mbtiParam.split(",");
+      const spicy = parseInt(parts[0]) || 3;
+      const health = parts[5] || "none";
+
+      // 캐릭터명 간단 매칭
+      const characterNames: Record<string, string> = {
+        "loss": "가벼운 식단 관리형 🥗",
+        "gain": "든든한 고단백 헬스형 🍗",
+        "sugar": "속 편한 웰빙 건강족 🍵",
+      };
+      const spicyName = spicy >= 4 ? "화끈한 매콤 모험가 🌶️" : spicy <= 2 ? "달콤 브런치파 🥞" : "균형잡힌 미식가 🍚";
+      const charName = characterNames[health] || spicyName;
+
+      const ogTitle = `친구의 먹BTI는 [${charName}]!`;
+      const ogDesc = `나는 어떤 먹BTI일까? 30초만에 나의 식성 캐릭터를 확인해보세요 👀`;
+      const ogImage = `https://mealbti.onrender.com/appsintoss-logo.png`;
+
+      html = html
+        .replace(/<title>.*?<\/title>/, `<title>${ogTitle}</title>`)
+        .replace(
+          "</head>",
+          `<meta property="og:title" content="${ogTitle}" />
+<meta property="og:description" content="${ogDesc}" />
+<meta property="og:image" content="${ogImage}" />
+<meta property="og:url" content="https://mealbti.onrender.com/?mbti=${mbtiParam}" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+</head>`
+        );
+    }
+
+    res.send(html);
+  });
 }
 
 startServer();
