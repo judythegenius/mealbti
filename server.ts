@@ -605,35 +605,66 @@ app.post("/api/recommend", async (req, res) => {
   const naverMatchMap = new Map<string, { rating: number; photo_url: string | null; menu_guess: string }>();
   const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
-  await Promise.all(
-    topRestaurantsToMatch.map(async (rest) => {
-      if (naverClientId && naverClientSecret) {
+  if (naverClientId && naverClientSecret) {
+    await Promise.all(
+      topRestaurantsToMatch.map(async (rest) => {
         try {
-          // 검색어 단순화: 지점명("xx점", "xx지점") 제거 + 가게명만 우선 시도
-          const simplifiedName = rest.name.replace(/\s*(영등포|강남|홍대|신사|판교|여의도|역삼)?(시장|코레일유통)?(사옥)?점$/g, "").trim();
-          const searchQuery = simplifiedName || rest.name;
- 
-          const localUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(searchQuery)}&display=5`;
-          const localRes = await fetch(localUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
-          const localData: any = await localRes.json();
- 
-          // 1차 시도 결과가 없으면, 원래 풀네임으로 한 번 더 시도
-          let finalLocalData = localData;
-          if (!finalLocalData.items || finalLocalData.items.length === 0) {
-            const fallbackUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(rest.name)}&display=5`;
-            const fallbackRes = await fetch(fallbackUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
-            finalLocalData = await fallbackRes.json();
+          // 1. 핵심 상호명 추출 (뒤에 붙은 'xx점', 'xx본점', '서울xx점' 등을 완전히 제거)
+          const simplifiedName = rest.name
+            .replace(/\s*([가-힣\w]+)?(점|지점|본점|사옥점|유통점)$/g, "")
+            .trim();
+
+          const nameToUse = simplifiedName || rest.name;
+
+          // 행정동/구 추출 (예: "서울 영등포구 문래동" -> "문래동")
+          const addressParts = rest.address.split(" ");
+          const regionWord = addressParts.find(w => w.endsWith("동") || w.endsWith("가") || w.endsWith("구")) || "";
+
+          // 시도해볼 검색어 배열 생성 (정교한 순서대로)
+          const searchQueries = [
+            nameToUse,                                  // 1순위: 깔끔한 핵심 상호명 (예: "혜화동돈까스극장")
+            `${regionWord} ${nameToUse}`.trim(),        // 2순위: 동네이름 + 상호명 (예: "문래동 라이브볼")
+            rest.name                                   // 3순위: 카카오 원본 풀네임 (Fallback)
+          ];
+
+          // 중복 검색어 제거
+          const uniqueQueries = Array.from(new Set(searchQueries)).filter(Boolean);
+
+          let finalLocalData: any = { items: [] };
+          let usedQuery = "";
+
+          // 성공할 때까지 순차적으로 네이버 API 호출
+          for (const query of uniqueQueries) {
+            const localUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=5`;
+            const localRes = await fetch(localUrl, {
+              headers: {
+                "X-Naver-Client-Id": naverClientId,
+                "X-Naver-Client-Secret": naverClientSecret
+              }
+            });
+            const localData: any = await localRes.json();
+            
+            if (localData.items && localData.items.length > 0) {
+              finalLocalData = localData;
+              usedQuery = query;
+              break; // 매칭 성공하면 반복문 탈출!
+            }
           }
- 
+
           if (finalLocalData.items && finalLocalData.items.length > 0) {
-            console.log(`[Naver Local] ${rest.name} 매칭 성공 (검색어: "${searchQuery}"):`, finalLocalData.items[0].title);
+            console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, finalLocalData.items[0].title);
             const matchedItem = finalLocalData.items[0];
             const cleanedTitle = matchedItem.title.replace(/<\/?[^>]+(>|$)/g, "");
             let photoUrl: string | null = null;
- 
+
             try {
               const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(cleanedTitle + " 음식")}&display=1&filter=large`;
-              const imageRes = await fetch(imageUrl, { headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret } });
+              const imageRes = await fetch(imageUrl, {
+                headers: {
+                  "X-Naver-Client-Id": naverClientId,
+                  "X-Naver-Client-Secret": naverClientSecret
+                }
+              });
               const imageData: any = await imageRes.json();
               console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
               if (imageData.items && imageData.items.length > 0) {
@@ -643,19 +674,23 @@ app.post("/api/recommend", async (req, res) => {
             } catch (imgErr) {
               console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
             }
- 
+
             const naverCategory = matchedItem.category || "";
             const naverMenuGuess = naverCategory.split(">").pop()?.trim() || "";
-            naverMatchMap.set(rest.name, { rating: getDeterministicRating(rest.name), photo_url: photoUrl, menu_guess: naverMenuGuess });
+            naverMatchMap.set(rest.name, {
+              rating: getDeterministicRating(rest.name),
+              photo_url: photoUrl,
+              menu_guess: naverMenuGuess
+            });
           } else {
-            console.log(`[Naver Local] ${rest.name} 매칭 실패 - 검색결과 없음 (검색어: "${searchQuery}", fallback: "${rest.name}")`);
+            console.log(`[Naver Local] ${rest.name} 매칭 최종 실패 (시도한 검색어 목록: ${JSON.stringify(uniqueQueries)})`);
           }
         } catch (e) {
           console.error(`Naver match failed for ${rest.name}:`, e);
         }
-      }
-    })
-  );
+      })
+    );
+  }
   
   let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
     filteredAndSorted.map(({ rest }) => {
