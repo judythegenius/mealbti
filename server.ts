@@ -1020,7 +1020,7 @@ app.post("/api/recommend", async (req, res) => {
   // ★ 타입 수정: menu_guess 포함
   const naverClientId = process.env.NAVER_CLIENT_ID;
   const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
-  const naverMatchMap = new Map<string, { rating: number; photo_url: string; hours: string; menu_items: string[] | null; menu_guess: string }>();
+  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null; menu_guess: string }>();
   const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
   if (naverClientId && naverClientSecret) {
@@ -1069,56 +1069,34 @@ app.post("/api/recommend", async (req, res) => {
             }
           }
 
- // Local 매칭 성공 여부 로그
-if (finalLocalData.items && finalLocalData.items.length > 0) {
-    const matchedItem = finalLocalData.items[0];
-  console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, matchedItem.title);
-} else {
-  console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
-}
-  const details = await scrapeStoreDetails(matchedItem.link);
-   naverMatchMap.set(rest.name, {
-    rating: getDeterministicRating(rest.name),
-    photo_url: photoUrl,
-    menu_guess: naverMenuGuess,
-    hours: details.hours,           // ← 추가
-    menu_items: details.menu_items  // ← 추가
-  });
-}
+          // 이미지 검색 (Local 매칭 성공 여부와 무관하게 항상 시도)
+          let photoUrl: string | null = null;
+          try {
+            const imageQuery = (finalLocalData.items?.length > 0)
+              ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
+              : rest.name + " 맛집";
+            const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=5&filter=large`;
+            const imageRes = await fetch(imageUrl, {
+              headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret }
+            });
+            const imageData: any = await imageRes.json();
+            if (imageData.items && imageData.items.length > 0) {
+              const pstaticItem = imageData.items.find((item: any) =>
+                item.link.includes("pstatic.net") || item.link.includes("naver.net")
+              );
+              const bestItem = pstaticItem || imageData.items[0];
+              photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
+            }
+          } catch (imgErr) {
+            console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
+          }
 
-// Local 성공 여부와 무관하게 Image 검색은 항상 시도
-let photoUrl: string | null = null;
-try {
-  const imageQuery = (finalLocalData.items?.length > 0)
-    ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
-    : rest.name + " 맛집";
-
-  const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=5&filter=large`;
-  const imageRes = await fetch(imageUrl, {
-    headers: {
-      "X-Naver-Client-Id": naverClientId,
-      "X-Naver-Client-Secret": naverClientSecret
-    }
-  });
-  const imageData: any = await imageRes.json();
-  console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
-  if (imageData.items && imageData.items.length > 0) {
-    const pstaticItem = imageData.items.find((item: any) => 
-      item.link.includes("pstatic.net") || item.link.includes("naver.net")
-    );
-    const bestItem = pstaticItem || imageData.items[0];
-    photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
-  }
-} catch (imgErr) {
-  console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
-}
-
-// 항상 Map에 저장
-naverMatchMap.set(rest.name, {
-  rating: getDeterministicRating(rest.name),
-  photo_url: photoUrl,
-  menu_guess: finalLocalData.items?.[0]?.category?.split(">").pop()?.trim() || ""
-});
+          // Map에 저장
+          naverMatchMap.set(rest.name, {
+            rating: getDeterministicRating(rest.name),
+            photo_url: photoUrl,
+            menu_guess: finalLocalData.items?.[0]?.category?.split(">").pop()?.trim() || ""
+          });
       } catch (e) {
         console.error(`Naver match failed for ${rest.name}:`, e);
       }
@@ -1162,8 +1140,7 @@ naverMatchMap.set(rest.name, {
       kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(queryForMap)}`,
       naver_url: `https://map.naver.com/v5/search/${encodeURIComponent(queryForMap)}`,
       verified_photo_url: naverMatch.photo_url,
-      hours: naverMatch.hours,
-      menu_items: naverMatch.menu_items,
+      verified_rating: getDeterministicRating(cur.name),
     };
   });
 
