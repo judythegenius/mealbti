@@ -5,7 +5,7 @@
 
 import React from "react";
 import { RecommendedRestaurant } from "../types";
-import { ExternalLink, Star, Footprints, RefreshCw, Compass, ArrowRight } from "lucide-react";
+import { ExternalLink, Footprints, RefreshCw, Compass, ArrowRight, Clock, Wallet } from "lucide-react";
 
 interface RecommendationListProps {
   restaurants: RecommendedRestaurant[];
@@ -45,6 +45,12 @@ export default function RecommendationList({
   onToggleCategory
 }: RecommendationListProps) {
   const hasItems = restaurants && restaurants.length > 0;
+  const getRepresentativeMenu = (rest: RecommendedRestaurant) => {
+    if (rest.recommended_menu && rest.recommended_menu !== "오늘의 추천 메뉴") {
+      return rest.recommended_menu;
+    }
+    return rest.menu_preview?.find(menu => menu && menu.trim().length > 0);
+  };
 
   // ★ 가로 스크롤 칩 (overflow-x-auto + flex-nowrap)
   const categoryChips = (
@@ -182,12 +188,28 @@ export default function RecommendationList({
             )}
 
             <div className="bg-[#F4F9FF] p-4 rounded-[20px] border border-blue-100/30">
-              {rest.recommended_menu && rest.recommended_menu !== "오늘의 추천 메뉴" && (
+              {getRepresentativeMenu(rest) && (
                 <div className="flex gap-2 mb-2">
                   <span className="text-[#3182F6] text-xs font-bold bg-[#e8f3ff] w-5 h-5 rounded-md flex items-center justify-center font-mono shrink-0 select-none">Q</span>
                   <p className="text-[13px] text-[#333D4B] font-bold leading-normal truncate">
-                    대표 메뉴: <span className="text-[#3182F6] font-extrabold">{rest.recommended_menu}</span>
+                    대표 메뉴: <span className="text-[#3182F6] font-extrabold">{getRepresentativeMenu(rest)}</span>
                   </p>
+                </div>
+              )}
+              {(rest.price_range || rest.business_hours) && (
+                <div className="grid grid-cols-1 gap-1.5 mb-2">
+                  {rest.price_range && (
+                    <div className="flex items-center gap-1.5 text-[12px] text-gray-600 font-semibold">
+                      <Wallet className="w-3.5 h-3.5 text-[#3182F6] shrink-0" />
+                      <span>가격 범위: {rest.price_range}</span>
+                    </div>
+                  )}
+                  {rest.business_hours && (
+                    <div className="flex items-center gap-1.5 text-[12px] text-gray-600 font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-[#3182F6] shrink-0" />
+                      <span>영업시간: {rest.business_hours}</span>
+                    </div>
+                  )}
                 </div>
               )}
               <p className="text-[13px] text-gray-600 leading-relaxed font-normal">

@@ -538,6 +538,29 @@ function generateDynamicComment(
   const name = rest.name || "";
   const mainMenu = menus[0] || "";
   const subMenu = menus[1] || "";
+  const catLeaf = cat.split(" > ").pop() || "맛집";
+  const menuLabel = mainMenu || subMenu || catLeaf;
+  const commentPool = [
+    `${name}에서는 ${menuLabel} 중심으로 오늘 ${mealType}을 부담 없이 잡기 좋아요.`,
+    `${menuLabel}이 당기는 날이면 ${name} 쪽이 무난한 선택지예요.`,
+    `${catLeaf} 분위기 안에서 ${mainMenu || "대표 메뉴"}를 가볍게 맞춰보기 좋아요.`,
+    `${mealType} 시간대에 너무 과하지 않게 먹기 좋은 흐름이에요.`,
+    `${name}은 메뉴 구성이 뚜렷해서 오늘 입맛을 정하기 쉬운 편이에요.`
+  ];
+  if (mbti.spicy >= 4) commentPool.push(`${mainMenu || catLeaf} 쪽으로 매콤한 만족감을 기대해볼 만해요.`);
+  if (mbti.fullness >= 4) commentPool.push(`${name}에서 든든하게 채우는 식사로 가기 좋아요.`);
+  if (mbti.speed <= 2) commentPool.push(`빠르게 먹고 이동해야 할 때 ${name}의 ${menuLabel} 조합이 잘 맞아요.`);
+  if (mbti.speed >= 4) {
+    commentPool.push(`${name}에서 ${menuLabel}을 천천히 맛보는 여유 있는 식사로 맞춰봤어요.`);
+    commentPool.push(`오늘은 ${mainMenu || catLeaf}을 중심으로 한 끼의 리듬을 느긋하게 가져가기 좋아요.`);
+    commentPool.push(`${name}은 급하게 넘기기보다 메뉴의 맛을 차분히 즐기기 좋은 선택이에요.`);
+  }
+  if (mbti.drink >= 4 && (mealType === "저녁" || mealType === "야식")) {
+    commentPool.push(`${mainMenu || catLeaf}에 가볍게 한잔 곁들이기 좋은 저녁 선택지예요.`);
+  }
+  const seedText = `${name}-${mealType}-${mainMenu}-${mbti.spicy}-${mbti.fullness}-${mbti.speed}-${new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}`;
+  const seed = Array.from(seedText).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  return commentPool[seed % commentPool.length];
 
   // ── 메뉴명 기반 섬세한 코멘트 풀 ──────────────────────────────────
 
@@ -770,7 +793,17 @@ if (mbti.speed >= 4) {
 // ★ 이미지 프록시 엔드포인트 추가 - Naver 이미지 CORS 우회
 // 불안정 도메인 차단 + timeout 포함 이미지 프록시
 const BLOCKED_IMAGE_DOMAINS = ["imgcdn.bdtong.co.kr", "blogfiles.naver.net"];
-const ALLOWED_IMAGE_PATTERNS = ["pstatic.net", "naver.net", "kakao.com", "tistory.com", "daumcdn.net", "ncloudstorage"];
+const ALLOWED_IMAGE_PATTERNS = [
+  "pstatic.net",
+  "naver.net",
+  "kakao.com",
+  "tistory.com",
+  "daumcdn.net",
+  "ncloudstorage",
+  "cdninstagram.com",
+  "fbcdn.net",
+  "instagram.com"
+];
 
 app.get("/api/image-proxy", async (req, res) => {
   const url = req.query.url as string;
@@ -914,9 +947,39 @@ app.post("/api/geocode", async (req, res) => {
   res.json({ lat: parseFloat((37.5500 + latDelta).toFixed(5)), lon: parseFloat((126.9800 + lonDelta).toFixed(5)), address: `${query} (가까운 가상 미식구역)` });
 });
 
+function estimatePriceRange(category: string, menuPreview: string[], mealType: string): string {
+  const text = `${category} ${menuPreview.join(" ")}`;
+  if (/오마카세|스테이크|한우|소고기|양갈비|갈비|사시미/.test(text)) return "30,000원 이상";
+  if (/브런치|파스타|피자|수제버거|돈까스|초밥|쌀국수|샌드위치|샐러드/.test(text)) return "12,000~25,000원";
+  if (/카페|커피|디저트|죽|분식|김밥|떡볶이|국밥|설렁탕|해장국|짜장면|라멘|우동|냉면|칼국수/.test(text)) return "8,000~15,000원";
+  if (mealType === "야식") return "15,000~30,000원";
+  return "10,000~20,000원";
+}
+
+function stripBranchSuffix(name: string): string {
+  const cleaned = name.replace(/<\/?[^>]+(>|$)/g, "").replace(/\s+/g, " ").trim();
+  const withoutTrailingBranch = cleaned.replace(/\s+[^\s]+점$/u, "").trim();
+  return withoutTrailingBranch || cleaned;
+}
+
+function extractDistrict(address: string): string {
+  return (address || "").split(/\s+/).find(part => part.endsWith("구")) || "";
+}
+
+function estimateBusinessHours(category: string, menuPreview: string[], mealType: string): string {
+  const text = `${category} ${menuPreview.join(" ")}`.toLowerCase();
+  if (/술집|호프|맥주|이자카야|요리주점|포차|막걸리|bar/.test(text)) return "17:00 - 익일 01:00";
+  if (/카페|커피|브런치|디저트|베이커리/.test(text)) return "08:00 - 22:00";
+  if (/국밥|해장국|설렁탕|순대국|감자탕/.test(text)) return "07:00 - 22:00";
+  if (/고기|구이|갈비|삼겹살|소고기|한우/.test(text)) return "11:00 - 22:00";
+  if (mealType === "아침") return "08:00 - 21:00";
+  if (mealType === "야식") return "17:00 - 24:00";
+  return "11:00 - 21:00";
+}
+
 app.post("/api/recommend", async (req, res) => {
   console.log("API /api/recommend called");
-  const { muckBti, latitude, longitude, groupSize, yesterdayFood, searchRadiusM, addressText, excludeNames, categoryOverride } = req.body;
+  const { muckBti, latitude, longitude, mealType, groupSize, yesterdayFood, searchRadiusM, addressText, excludeNames, categoryOverride } = req.body;
 
   if (!latitude || !longitude) {
     return res.status(400).json({ error: "COORDINATES_REQUIRED", message: "GPS 위경도 좌표가 반드시 확보되어야 합니다." });
@@ -933,6 +996,9 @@ app.post("/api/recommend", async (req, res) => {
   else if (hour >= 11 && hour < 16) detectedMealType = "점심";
   else if (hour >= 16 && hour < 21) detectedMealType = "저녁";
   else detectedMealType = "야식";
+  if (["아침", "점심", "저녁", "야식"].includes(mealType)) {
+    detectedMealType = mealType;
+  }
 
   const menuKeywords = (categoryOverride && Array.isArray(categoryOverride) && categoryOverride.length > 0)
     ? categoryOverride.flatMap((c: string) => CATEGORY_KEYWORD_MAP[c] || [c])
@@ -1054,11 +1120,11 @@ app.post("/api/recommend", async (req, res) => {
             .replace(/\s*([가-힣\w]+)?(점|지점|본점|사옥점|유통점)$/g, "")
             .trim();
 
-          const nameToUse = simplifiedName || rest.name;
+          const nameToUse = stripBranchSuffix(rest.name);
 
           // 행정동/구 추출 (예: "서울 영등포구 문래동" -> "문래동")
           const addressParts = rest.address.split(" ");
-          const regionWord = addressParts.find(w => w.endsWith("동") || w.endsWith("가") || w.endsWith("구")) || "";
+          const regionWord = extractDistrict(rest.address) || extractDistrict(addressText || "") || "\uC601\uB4F1\uD3EC\uAD6C";
 
           // 시도해볼 검색어 배열 생성 (정교한 순서대로)
           const searchQueries = [
@@ -1068,7 +1134,7 @@ app.post("/api/recommend", async (req, res) => {
           ];
 
           // 중복 검색어 제거
-          const uniqueQueries = Array.from(new Set(searchQueries)).filter(Boolean);
+          const uniqueQueries = [`${regionWord} ${nameToUse}`.trim()].filter(Boolean);
 
           let finalLocalData: any = { items: [] };
           let usedQuery = "";
@@ -1102,25 +1168,36 @@ app.post("/api/recommend", async (req, res) => {
 // Local 성공 여부와 무관하게 Image 검색은 항상 시도
 let photoUrl: string | null = null;
 try {
-  const imageQuery = (finalLocalData.items?.length > 0)
-    ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
-    : rest.name + " 맛집";
-
-  const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=5&filter=large`;
-  const imageRes = await fetch(imageUrl, {
-    headers: {
-      "X-Naver-Client-Id": naverClientId,
-      "X-Naver-Client-Secret": naverClientSecret
-    }
-  });
-  const imageData: any = await imageRes.json();
-  console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
-  if (imageData.items && imageData.items.length > 0) {
-    const pstaticItem = imageData.items.find((item: any) => 
+  const imageQueries = [
+    `${regionWord} ${nameToUse} 음식`,
+    `${regionWord} ${nameToUse} 인스타그램`,
+    `${regionWord} ${nameToUse} 맛집`
+  ];
+  for (const imageQuery of imageQueries) {
+    const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=10&filter=large`;
+    const imageRes = await fetch(imageUrl, {
+      headers: {
+        "X-Naver-Client-Id": naverClientId,
+        "X-Naver-Client-Secret": naverClientSecret
+      }
+    });
+    const imageData: any = await imageRes.json();
+    const items = imageData.items || [];
+    const instagramItem = items.find((item: any) =>
+      item.link.includes("cdninstagram.com") ||
+      item.link.includes("fbcdn.net") ||
+      item.thumbnail?.includes("cdninstagram.com") ||
+      item.thumbnail?.includes("fbcdn.net")
+    );
+    const naverItem = items.find((item: any) =>
       item.link.includes("pstatic.net") || item.link.includes("naver.net")
     );
-    const bestItem = pstaticItem || imageData.items[0];
-    photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
+    const bestItem = instagramItem || naverItem || items[0];
+    console.log(`[Naver Image] ${rest.name} (${imageQuery}):`, bestItem?.link || "이미지 없음");
+    if (bestItem?.link) {
+      photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
+      break;
+    }
   }
 } catch (imgErr) {
   console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
@@ -1133,7 +1210,7 @@ const telephone = localItem?.telephone || "";
 const catStr = (localItem?.category || "").toLowerCase();
 const isBarType = catStr.includes("술") || catStr.includes("호프") || catStr.includes("주점");
 const isCafeType = catStr.includes("카페") || catStr.includes("커피");
-const business_hours = isBarType ? "17:00 - 익일 01:00" : isCafeType ? "08:00 - 22:00" : "11:00 - 21:00";
+const business_hours = estimateBusinessHours(localItem?.category || rest.category, rest.menu_preview || [], detectedMealType);
 
 // 항상 Map에 저장
 naverMatchMap.set(rest.name, {
@@ -1145,6 +1222,13 @@ naverMatchMap.set(rest.name, {
 });
       } catch (e) {
         console.error(`Naver match failed for ${rest.name}:`, e);
+        naverMatchMap.set(rest.name, {
+          rating: getDeterministicRating(rest.name),
+          photo_url: null,
+          telephone: "",
+          business_hours: estimateBusinessHours(rest.category, rest.menu_preview || [], detectedMealType),
+          menu_guess: ""
+        });
       }
     })
   );
@@ -1178,6 +1262,8 @@ naverMatchMap.set(rest.name, {
     return {
       name: cur.name,
       recommended_menu: cur.recommended_menu,
+      menu_preview: original?.menu_preview || [],
+      price_range: estimatePriceRange(cur.category, original?.menu_preview || [], detectedMealType),
       toss_comment: cur.toss_comment,
       distance_meters: distM,
       walk_min: walkMin,

@@ -1,0 +1,8 @@
+
+> encodedcommand@0.1.0 dev
+> tsx server.ts
+
+KAKAO KEY LOADED: de46161cf8ac900ed4e99833ad5dce0c
+NAVER KEY LOADED: true true
+GEMINI KEY LOADED: true
+Server listening on 3001

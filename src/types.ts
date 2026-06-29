@@ -44,6 +44,11 @@ export interface Restaurant {
 export interface RecommendedRestaurant {
   name: string;
   recommended_menu: string;
+  menu_preview?: string[];
+  price_range?: string;
+  business_hours?: string;
+  telephone?: string;
+  menu_guess?: string;
   toss_comment: string;
   distance_meters: number;
   walk_min: number;

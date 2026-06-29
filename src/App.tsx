@@ -218,7 +218,7 @@ useEffect(() => {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           muckBti: mbti, latitude: coordinates.lat, longitude: coordinates.lon,
-          groupSize, yesterdayFood, searchRadiusM, location_source: locationSource, addressText: addressText === "위치 확인 중..." ? "" : addressText,
+          mealType, groupSize, yesterdayFood, searchRadiusM, location_source: locationSource, addressText: addressText === "위치 확인 중..." ? "" : addressText,
          excludeNames: isLoadMore ? restaurants.map(r => r.name) : [],
           categoryOverride: selectedCategories.length > 0 ? selectedCategories : null
         }),
