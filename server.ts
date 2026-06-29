@@ -991,7 +991,11 @@ app.post("/api/recommend", async (req, res) => {
     score += Math.max(0, (1000 - rest.distance_meters) / 1000);
     const isBar = rest.category.includes("호프") || rest.category.includes("주점") || rest.category.includes("맥주");
     if ((detectedMealType === "아침" || detectedMealType === "점심") && isBar) return { rest, score: -999 };
-    if (detectedMealType === "야식" && isBar) score += 2;
+   if (detectedMealType === "야식") {
+  const isDaytimeOnly = rest.category.includes("브런치") || rest.category.includes("카페") || rest.category.includes("샐러드");
+  if (isDaytimeOnly) return { rest, score: -999 };
+  if (isBar) score += 2;
+}
     return { rest, score };
   });
 
@@ -1004,11 +1008,11 @@ app.post("/api/recommend", async (req, res) => {
       filteredAndSorted.push(item);
       usedCategories.add(mainCategory);
     }
-    if (filteredAndSorted.length === 3) break;
+    if (filteredAndSorted.length === 5) break;
   }
-  if (filteredAndSorted.length < 3) {
+  if (filteredAndSorted.length < 5) {
     for (const item of sortedCandidates) {
-      if (filteredAndSorted.length === 3) break;
+      if (filteredAndSorted.length === 5) break;
       if (!filteredAndSorted.includes(item)) filteredAndSorted.push(item);
     }
   }
@@ -1016,7 +1020,7 @@ app.post("/api/recommend", async (req, res) => {
   // ★ 타입 수정: menu_guess 포함
   const naverClientId = process.env.NAVER_CLIENT_ID;
   const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
-  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null; menu_guess: string }>();
+  const naverMatchMap = new Map<string, { rating: number; photo_url: string; hours: string; menu_items: string[] | null; menu_guess: string }>();
   const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
   if (naverClientId && naverClientSecret) {
@@ -1067,9 +1071,19 @@ app.post("/api/recommend", async (req, res) => {
 
  // Local 매칭 성공 여부 로그
 if (finalLocalData.items && finalLocalData.items.length > 0) {
-  console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, finalLocalData.items[0].title);
+    const matchedItem = finalLocalData.items[0];
+  console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, matchedItem.title);
 } else {
   console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
+}
+  const details = await scrapeStoreDetails(matchedItem.link);
+   naverMatchMap.set(rest.name, {
+    rating: getDeterministicRating(rest.name),
+    photo_url: photoUrl,
+    menu_guess: naverMenuGuess,
+    hours: details.hours,           // ← 추가
+    menu_items: details.menu_items  // ← 추가
+  });
 }
 
 // Local 성공 여부와 무관하게 Image 검색은 항상 시도
@@ -1135,7 +1149,7 @@ naverMatchMap.set(rest.name, {
     const isFranchise = commonFranchises.some(f => cur.name.includes(f));
     const addressWords = finalAddress.split(" ");
     const regionWord = addressWords.find(w => w.endsWith("구") || w.endsWith("동")) || "";
-    const queryForMap = (isFranchise && regionWord) ? `${regionWord} ${cur.name}`.trim() : cur.name;
+    const queryForMap = regionWord ? `${regionWord} ${cur.name}`.trim() : cur.name;
 
     return {
       name: cur.name,
@@ -1148,7 +1162,8 @@ naverMatchMap.set(rest.name, {
       kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(queryForMap)}`,
       naver_url: `https://map.naver.com/v5/search/${encodeURIComponent(queryForMap)}`,
       verified_photo_url: naverMatch.photo_url,
-      verified_rating: naverMatch.rating || getDeterministicRating(cur.name)
+      hours: naverMatch.hours,
+      menu_items: naverMatch.menu_items,
     };
   });
 

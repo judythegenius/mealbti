@@ -145,11 +145,6 @@ export default function RecommendationList({
                   <span className="text-xs bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-lg text-gray-500 font-bold font-sans">
                     {rest.category}
                   </span>
-                  {rest.verified_rating && (
-                    <span className="text-xs bg-amber-50 border border-amber-100 text-amber-600 font-bold px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 font-mono">
-                      <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {rest.verified_rating}
-                    </span>
-                  )}
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 tracking-tight mt-1.5 truncate">
                   {rest.name}
