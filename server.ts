@@ -1091,22 +1091,13 @@ app.post("/api/recommend", async (req, res) => {
             }
           }
 
- // Local 매칭 성공 여부 로그
-if (finalLocalData.items && finalLocalData.items.length > 0) {
-    const matchedItem = finalLocalData.items[0];
-  console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, matchedItem.title);
-} else {
-  console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
-}
-  const details = await scrapeStoreDetails(matchedItem.link);
-   naverMatchMap.set(rest.name, {
-    rating: getDeterministicRating(rest.name),
-    photo_url: photoUrl,
-    menu_guess: naverMenuGuess,
-    hours: details.hours,           // ← 추가
-    menu_items: details.menu_items  // ← 추가
-  });
-}
+          // Local 매칭 성공 여부 로그
+          if (finalLocalData.items && finalLocalData.items.length > 0) {
+            const matchedItem = finalLocalData.items[0];
+            console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, matchedItem.title);
+          } else {
+            console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
+          }
 
 // Local 성공 여부와 무관하게 Image 검색은 항상 시도
 let photoUrl: string | null = null;
