@@ -768,26 +768,48 @@ if (mbti.speed >= 4) {
 // ===================== Routes =====================
 
 // ★ 이미지 프록시 엔드포인트 추가 - Naver 이미지 CORS 우회
+// 불안정 도메인 차단 + timeout 포함 이미지 프록시
+const BLOCKED_IMAGE_DOMAINS = ["imgcdn.bdtong.co.kr", "blogfiles.naver.net"];
+const ALLOWED_IMAGE_PATTERNS = ["pstatic.net", "naver.net", "kakao.com", "tistory.com", "daumcdn.net", "ncloudstorage"];
+
 app.get("/api/image-proxy", async (req, res) => {
   const url = req.query.url as string;
   if (!url) return res.status(400).send("url param required");
 
-  // URL 유효성만 체크 (도메인 제한 제거)
-  try { new URL(url); } catch { return res.status(400).send("invalid url"); }
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { return res.status(400).send("invalid url"); }
+
+  if (BLOCKED_IMAGE_DOMAINS.some(d => parsed.hostname.includes(d))) {
+    return res.status(403).send("blocked domain");
+  }
+  const isAllowed = ALLOWED_IMAGE_PATTERNS.some(p => parsed.hostname.includes(p));
+  if (!isAllowed) {
+    return res.status(403).send("domain not allowed");
+  }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const response = await fetch(url, {
-      headers: { "Referer": "https://search.naver.com/", "User-Agent": "Mozilla/5.0" }
+      signal: controller.signal,
+      headers: {
+        "Referer": "https://search.naver.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      }
     });
+    clearTimeout(timeout);
     if (!response.ok) return res.status(response.status).send("upstream error");
     const contentType = response.headers.get("content-type") || "image/jpeg";
+    if (!contentType.startsWith("image/")) return res.status(415).send("not an image");
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=86400");
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
-  } catch (e) {
-    console.error("Image proxy error:", e);
-    res.status(500).send("proxy error");
+  } catch (e: any) {
+    const isTimeout = e?.name === "AbortError";
+    const isDns = e?.cause?.code === "ENOTFOUND";
+    if (!isTimeout && !isDns) console.error("Image proxy error:", e?.cause?.code || e?.message);
+    res.status(502).send(isTimeout ? "timeout" : isDns ? "dns failed" : "proxy error");
   }
 });
 
@@ -1020,7 +1042,7 @@ app.post("/api/recommend", async (req, res) => {
   // ★ 타입 수정: menu_guess 포함
   const naverClientId = process.env.NAVER_CLIENT_ID;
   const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
-  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null; menu_guess: string }>();
+  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null; telephone: string; business_hours: string; menu_guess: string }>();
   const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
   if (naverClientId && naverClientSecret) {
@@ -1069,34 +1091,67 @@ app.post("/api/recommend", async (req, res) => {
             }
           }
 
-          // 이미지 검색 (Local 매칭 성공 여부와 무관하게 항상 시도)
-          let photoUrl: string | null = null;
-          try {
-            const imageQuery = (finalLocalData.items?.length > 0)
-              ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
-              : rest.name + " 맛집";
-            const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=5&filter=large`;
-            const imageRes = await fetch(imageUrl, {
-              headers: { "X-Naver-Client-Id": naverClientId, "X-Naver-Client-Secret": naverClientSecret }
-            });
-            const imageData: any = await imageRes.json();
-            if (imageData.items && imageData.items.length > 0) {
-              const pstaticItem = imageData.items.find((item: any) =>
-                item.link.includes("pstatic.net") || item.link.includes("naver.net")
-              );
-              const bestItem = pstaticItem || imageData.items[0];
-              photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
-            }
-          } catch (imgErr) {
-            console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
-          }
+ // Local 매칭 성공 여부 로그
+if (finalLocalData.items && finalLocalData.items.length > 0) {
+    const matchedItem = finalLocalData.items[0];
+  console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, matchedItem.title);
+} else {
+  console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
+}
+  const details = await scrapeStoreDetails(matchedItem.link);
+   naverMatchMap.set(rest.name, {
+    rating: getDeterministicRating(rest.name),
+    photo_url: photoUrl,
+    menu_guess: naverMenuGuess,
+    hours: details.hours,           // ← 추가
+    menu_items: details.menu_items  // ← 추가
+  });
+}
 
-          // Map에 저장
-          naverMatchMap.set(rest.name, {
-            rating: getDeterministicRating(rest.name),
-            photo_url: photoUrl,
-            menu_guess: finalLocalData.items?.[0]?.category?.split(">").pop()?.trim() || ""
-          });
+// Local 성공 여부와 무관하게 Image 검색은 항상 시도
+let photoUrl: string | null = null;
+try {
+  const imageQuery = (finalLocalData.items?.length > 0)
+    ? finalLocalData.items[0].title.replace(/<\/?[^>]+(>|$)/g, "") + " 음식"
+    : rest.name + " 맛집";
+
+  const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=5&filter=large`;
+  const imageRes = await fetch(imageUrl, {
+    headers: {
+      "X-Naver-Client-Id": naverClientId,
+      "X-Naver-Client-Secret": naverClientSecret
+    }
+  });
+  const imageData: any = await imageRes.json();
+  console.log(`[Naver Image] ${rest.name}:`, imageData.items?.[0]?.link || "이미지 없음");
+  if (imageData.items && imageData.items.length > 0) {
+    const pstaticItem = imageData.items.find((item: any) => 
+      item.link.includes("pstatic.net") || item.link.includes("naver.net")
+    );
+    const bestItem = pstaticItem || imageData.items[0];
+    photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
+  }
+} catch (imgErr) {
+  console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
+}
+
+// Local API에서 전화번호 추출
+const localItem = finalLocalData.items?.[0];
+const telephone = localItem?.telephone || "";
+// 카테고리 기반 간략 영업시간 추정 (실제 API 미제공)
+const catStr = (localItem?.category || "").toLowerCase();
+const isBarType = catStr.includes("술") || catStr.includes("호프") || catStr.includes("주점");
+const isCafeType = catStr.includes("카페") || catStr.includes("커피");
+const business_hours = isBarType ? "17:00 - 익일 01:00" : isCafeType ? "08:00 - 22:00" : "11:00 - 21:00";
+
+// 항상 Map에 저장
+naverMatchMap.set(rest.name, {
+  rating: getDeterministicRating(rest.name),
+  photo_url: photoUrl,
+  telephone,
+  business_hours,
+  menu_guess: localItem?.category?.split(">").pop()?.trim() || ""
+});
       } catch (e) {
         console.error(`Naver match failed for ${rest.name}:`, e);
       }
@@ -1119,7 +1174,7 @@ app.post("/api/recommend", async (req, res) => {
 
   const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
     const original = rawNearby.find(r => r.name === cur.name);
-    const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null, menu_guess: "" };
+    const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null, telephone: "", business_hours: "", menu_guess: "" };
     const finalAddress = cur.address || (original ? original.address : `${addressText || "지정 구역"} 인근`);
     const distM = original ? original.distance_meters : Math.floor(180 + Math.random() * 450);
     const walkMin = Math.max(1, Math.round(distM / 80));
@@ -1140,7 +1195,9 @@ app.post("/api/recommend", async (req, res) => {
       kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(queryForMap)}`,
       naver_url: `https://map.naver.com/v5/search/${encodeURIComponent(queryForMap)}`,
       verified_photo_url: naverMatch.photo_url,
-      verified_rating: getDeterministicRating(cur.name),
+      telephone: naverMatch.telephone,
+      business_hours: naverMatch.business_hours,
+      menu_guess: naverMatch.menu_guess,
     };
   });
 
