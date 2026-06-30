@@ -1055,52 +1055,61 @@ const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
 await Promise.all(
     topRestaurantsToMatch.map(async (rest) => {
-      let finalPhotoUrl: string | null = null;
+let finalPhotoUrl: string | null = null;
+let finalHours = "";
+let finalMenuItems: string[] = [];
 
 try {
-        // kakaoPlaceDetails 블록 제거됨
-        if (naverClientId && naverClientSecret) {
-          const categoryLeaf = rest.category.split(" > ").pop() || "";
-          const topMenu = rest.menu_preview?.[0] || "";
-          const imageQuery = topMenu ? `${rest.name} ${topMenu}` : `${rest.name} ${categoryLeaf}`;
-          const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=3&filter=large`;
-          const imageRes = await fetch(imageUrl, {
-            headers: {
-              "X-Naver-Client-Id": naverClientId,
-              "X-Naver-Client-Secret": naverClientSecret
-            }
-          });
-          const imageData: any = await imageRes.json();
-          if (imageData.items && imageData.items.length > 0) {
-            const safeItem = imageData.items.find((item: any) => item.link.includes("pstatic.net")) || imageData.items[0];
-            finalPhotoUrl = `/api/image-proxy?url=${encodeURIComponent(safeItem.link)}`;
-          }
-        }
+  // 영업시간 → Google
+  const googleDetails = await getGooglePlaceDetails(rest.name, rest.address);
+  if (googleDetails) {
+    finalHours = googleDetails.hours || "";
+    finalMenuItems = googleDetails.menuItems || [];
+  }
 
-        if (!finalPhotoUrl) {
-          finalPhotoUrl = getCategoryFallbackImage(rest.category, rest.menu_preview);
-        }
-
-        naverMatchMap.set(rest.name, {
-          rating: getDeterministicRating(rest.name),
-          photo_urls: finalPhotoUrl ? [finalPhotoUrl] : [],  // ← 배열로 수정
-          hours: null,  // ← Google/Kakao 없으니 null
-          menu_items: [],
-          menu_guess: ""
-        });
-
-      } catch (e) {
-        console.error(`매칭 실패 (${rest.name}):`, e);
-        naverMatchMap.set(rest.name, {
-          rating: 4.0,
-          photo_urls: getCategoryFallbackImage(rest.category, rest.menu_preview || [])
-            ? [getCategoryFallbackImage(rest.category, rest.menu_preview || [])!]
-            : [],
-          hours: null,
-          menu_items: [],
-          menu_guess: ""
-        });
+  // 사진 → 네이버
+  if (naverClientId && naverClientSecret) {
+    const categoryLeaf = rest.category.split(" > ").pop() || "";
+    const topMenu = rest.menu_preview?.[0] || "";
+    const imageQuery = topMenu ? `${rest.name} ${topMenu}` : `${rest.name} ${categoryLeaf}`;
+    const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=3&filter=large`;
+    const imageRes = await fetch(imageUrl, {
+      headers: {
+        "X-Naver-Client-Id": naverClientId,
+        "X-Naver-Client-Secret": naverClientSecret
       }
+    });
+    const imageData: any = await imageRes.json();
+    if (imageData.items && imageData.items.length > 0) {
+      const safeItem = imageData.items.find((item: any) => item.link.includes("pstatic.net")) || imageData.items[0];
+      finalPhotoUrl = `/api/image-proxy?url=${encodeURIComponent(safeItem.link)}`;
+    }
+  }
+
+  if (!finalPhotoUrl) {
+    finalPhotoUrl = getCategoryFallbackImage(rest.category, rest.menu_preview);
+  }
+
+  naverMatchMap.set(rest.name, {
+    rating: getDeterministicRating(rest.name),
+    photo_urls: finalPhotoUrl ? [finalPhotoUrl] : [],
+    hours: finalHours && finalHours.trim().length > 0 ? finalHours : null,
+    menu_items: finalMenuItems,
+    menu_guess: ""
+  });
+
+} catch (e) {
+  console.error(`매칭 실패 (${rest.name}):`, e);
+  naverMatchMap.set(rest.name, {
+    rating: 4.0,
+    photo_urls: getCategoryFallbackImage(rest.category, rest.menu_preview || [])
+      ? [getCategoryFallbackImage(rest.category, rest.menu_preview || [])!]
+      : [],
+    hours: null,
+    menu_items: [],
+    menu_guess: ""
+  });
+}
     })
   );
   
