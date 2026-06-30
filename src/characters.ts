@@ -34,7 +34,7 @@ export const characters: Character[] = [
   {
     id: "spicy_enthusiast",
     name: "화끈한 매콤 모험가",
-    emoji: "🌶️",
+    emoji: "⚡",
     description: "강렬하고 얼큰한 매운맛이 없으면 못 견디는 매콤 마니아! 칼칼함이 곧 행복입니다.",
     coordinates: [5, 3, 3, 3, 1],
     preferredHealth: "none"

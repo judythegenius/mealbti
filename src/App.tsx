@@ -14,12 +14,12 @@ import { Utensils, Sliders, ChevronDown, AlertCircle, MapPin, Search, X } from "
 
 function getSkyBg(): { from: string; label: string } {
   const h = new Date().getHours();
-  if (h >= 5  && h < 8)  return { from: "from-[#FFD580] via-[#FFB347]/0 to-[#E8F4FD]/0", label: "아침" };
-  if (h >= 8  && h < 12) return { from: "from-[#56CCF2] via-[#2F80ED]/0 to-[#E8F4FD]/0", label: "오전" };
-  if (h >= 12 && h < 16) return { from: "from-[#2980B9] via-[#6DD5FA]/0 to-[#E8F4FD]/0", label: "점심" };
-  if (h >= 16 && h < 19) return { from: "from-[#F7971E] via-[#FFD200]/0 to-[#E8F4FD]/0", label: "노을" };
-  if (h >= 19 && h < 21) return { from: "from-[#4568DC] via-[#B06AB3]/0 to-[#E8F4FD]/0", label: "저녁" };
-  return { from: "from-[#0F2027] via-[#203A43]/0 to-[#2C5364]/0", label: "밤" };
+  if (h >= 5  && h < 8)  return { from: "from-[#fff95b]/80 via-[#FFB347]/0 to-[#E8F4FD]/0", label: "아침" };
+  if (h >= 8  && h < 12) return { from: "from-[#56CCF2]/80 via-[#2F80ED]/0 to-[#E8F4FD]/0", label: "오전" };
+  if (h >= 12 && h < 16) return { from: "from-[#FDBB2D]/80 via-[#6DD5FA]/0 to-[#E8F4FD]/0", label: "점심" };
+  if (h >= 16 && h < 19) return { from: "from-[#F7971E]/80 via-[#FFD200]/0 to-[#E8F4FD]/0", label: "노을" };
+  if (h >= 19 && h < 21) return { from: "from-[#4568DC]/80 via-[#B06AB3]/0 to-[#E8F4FD]/0", label: "저녁" };
+  return { from: "from-[#0F2027]/80 via-[#203A43]/0 to-[#2C5364]/0", label: "밤" };
 }
 
 const HERO_SUBTITLES: Record<string, string> = {
@@ -494,7 +494,7 @@ const handleTestComplete = (testMbti: MuckBti) => {
               </div>
             )}
 
-            {/* 에러 */}
+{/* 에러 */}
             {apiError && (
               <div className="bg-red-50 border border-red-100 text-red-600 text-[12px] p-3.5 rounded-2xl flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
@@ -502,15 +502,25 @@ const handleTestComplete = (testMbti: MuckBti) => {
               </div>
             )}
 
-            <RecommendationList
-              restaurants={restaurants} isLoading={isLoading}
-              onExpandRadius={handleExpandRadius}
-              onRefresh={() => fetchRecommendations(false)}
-              onLoadMore={() => fetchRecommendations(true)}
-              radiusM={searchRadiusM}
-              selectedCategories={selectedCategories}
-              onToggleCategory={handleToggleCategory}
-            />
+            {!coordinates ? (
+              /* GPS 위치를 아직 못 잡았을 때 (맨 처음 5초) 보여줄 로딩 화면 */
+              <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-3">
+                <MapPin className="w-8 h-8 animate-bounce text-[#3182F6]" />
+                <p className="text-[14px] font-bold text-gray-700">현재 위치를 파악하고 있어요 🛰️...</p>
+                <p className="text-[12px] text-gray-400">잠시만 기다려주세요</p>
+              </div>
+            ) : (
+              /* 위치를 잡은 후 식당 리스트 (기존 코드) */
+              <RecommendationList
+                restaurants={restaurants} isLoading={isLoading}
+                onExpandRadius={handleExpandRadius}
+                onRefresh={() => fetchRecommendations(false)}
+                onLoadMore={() => fetchRecommendations(true)}
+                radiusM={searchRadiusM}
+                selectedCategories={selectedCategories}
+                onToggleCategory={handleToggleCategory}
+              />
+            )}
           </div>
         )}
       </main>

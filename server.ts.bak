@@ -630,7 +630,7 @@ app.post("/api/recommend", async (req, res) => {
   const naverClientId = process.env.NAVER_CLIENT_ID;
   const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
 
-  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null }>();
+  const naverMatchMap = new Map<string, { rating: number; photo_urls: string | null }>();
 
   // Use a parallel match call for the top rawRestaurants (limit to top 10 for speed and limits)
   const topRestaurantsToMatch = rawNearby.slice(0, 10);
@@ -675,7 +675,7 @@ app.post("/api/recommend", async (req, res) => {
 
             naverMatchMap.set(rest.name, {
               rating: getDeterministicRating(rest.name),
-              photo_url: photoUrl
+              photo_urls: photoUrl
             });
           }
         } catch (e) {
@@ -694,7 +694,7 @@ app.post("/api/recommend", async (req, res) => {
           // related to their actual category! Let's provide some realistic category illustrations/icons.
           naverMatchMap.set(rest.name, {
             rating: getDeterministicRating(rest.name),
-            photo_url: null // We don't provide fake photos unless they match. Let her see the high-quality layout!
+            photo_urls: null // We don't provide fake photos unless they match. Let her see the high-quality layout!
           });
         }
       }
@@ -918,7 +918,7 @@ app.post("/api/recommend", async (req, res) => {
   const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
     // Find restaurant in original list
     const original = rawNearby.find(r => r.name === cur.name);
-    const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null };
+    const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_urls: null };
 
     // Select actual address & categories from Gemini fallback or local cache
     const finalAddress = cur.address || (original ? original.address : `${req.body.addressText || "지정 구역"} 인근 실존 매장`);
@@ -958,7 +958,7 @@ app.post("/api/recommend", async (req, res) => {
       address: finalAddress,
       kakao_url: kakaoUrl,
       naver_url: naverUrl,
-      verified_photo_url: naverMatch.photo_url,
+      verified_photo_urls: naverMatch.photo_urls,
       verified_rating: naverMatch.rating || getDeterministicRating(finalName)
     };
   });

@@ -4,11 +4,11 @@
  */
 
 export interface MuckBti {
-  fullness: number;   // 1 (가볍게 한끼) ~ 5 (든든하게 배부르게)
-  speed: number;      // 1 (빠르게 해치움) ~ 5 (여유롭게 즐김)
-  salty: number; // 1 = 슴슴/덜짠, 5 = 짠 자극적
-  spicy: number;      // 1 (순한맛) ~ 5 (지옥불맛)
-  drink: number;      // 1 (거의 안 마심) ~ 5 (자주 곁들임)
+  spicy: number;
+  fullness: number;
+  speed: number;
+  drink: number;
+  meatVeg: number;  // 1=야채중심, 5=고기중심
   health: "none" | "loss" | "gain" | "sugar";
 }
 
@@ -28,6 +28,7 @@ export interface CurrentContext {
   search_radius_m: number;
 }
 
+
 export interface Restaurant {
   name: string;
   category: string;
@@ -45,10 +46,7 @@ export interface RecommendedRestaurant {
   name: string;
   recommended_menu: string;
   menu_preview?: string[];
-  price_range?: string;
-  business_hours?: string;
-  telephone?: string;
-  menu_guess?: string;
+  business_hours?: string | null;
   toss_comment: string;
   distance_meters: number;
   walk_min: number;
@@ -56,8 +54,7 @@ export interface RecommendedRestaurant {
   address: string;
   kakao_url: string;
   naver_url: string;
-  verified_photo_url: string | null;
-  verified_rating: number | null;
+  verified_photo_urls?: string[];
 }
 
 export interface RecommendationResponse {

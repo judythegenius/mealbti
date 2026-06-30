@@ -12,52 +12,54 @@ interface MuckBtiTestProps {
 }
 
 export default function MuckBtiTest({ onComplete }: MuckBtiTestProps) {
-  const [mbti, setMbti] = useState<MuckBti>({
-    spicy: 3,
-    fullness: 3,
-    salty: 3,
-    speed: 3,
-    drink: 3,
-    health: "none",
-  });
 
-  const sliders = [
-    {
-      key: "spicy" as keyof Omit<MuckBti, "health">,
-      title: "🌶️ 맵기 강도",
-      sub: "얼마나 칼칼하게 드시나요?",
-      minLabel: "순한맛",
-      maxLabel: "지옥불맛",
-    },
-    {
-      key: "fullness" as keyof Omit<MuckBti, "health">,
-      title: "🍚 포만감 규모",
-      sub: "식후 포만감, 얼마나 채울까요?",
-      minLabel: "가볍게",
-      maxLabel: "든든하게",
-    },
-    {
-      key: "salty" as keyof Omit<MuckBti, "health">,
-      title: "🧂 짠맛 강도",
-      sub: "음식의 간, 얼마나 세게 드시나요?",
-      minLabel: "슴슴하게",
-      maxLabel: "짭짤하게",
-    },
-    {
-      key: "speed" as keyof Omit<MuckBti, "health">,
-      title: "⏱️ 식사 속도",
-      sub: "식사할 때 여유 있게 vs 빠르게?",
-      minLabel: "신속히",
-      maxLabel: "느긋하게",
-    },
-    {
-      key: "drink" as keyof Omit<MuckBti, "health">,
-      title: "🍻 음주 반주",
-      sub: "식사에 반주를 즐기는 편인가요?",
-      minLabel: "식사만",
-      maxLabel: "반주 필수",
-    },
-  ];
+ const sliders = [
+  {
+    key: "spicy" as keyof Omit<MuckBti, "health">,
+    title: "⚡ 자극 강도",
+    sub: "얼마나 자극적이게 드시나요?",
+    minLabel: "순한맛",
+    maxLabel: "짜릿한 MSG맛",
+  },
+  {
+    key: "fullness" as keyof Omit<MuckBti, "health">,
+    title: "🍚 포만감 규모",
+    sub: "식후 포만감, 얼마나 채울까요?",
+    minLabel: "가볍게",
+    maxLabel: "든든하게",
+  },
+  {
+    key: "meatVeg" as keyof Omit<MuckBti, "health">,
+    title: "🥩 고기 vs 🥗 야채",
+    sub: "오늘 식사 성향은?",
+    minLabel: "야채 중심",
+    maxLabel: "고기 중심",
+  },
+  {
+    key: "speed" as keyof Omit<MuckBti, "health">,
+    title: "⏱️ 식사 속도",
+    sub: "식사할 때 여유 있게 vs 빠르게?",
+    minLabel: "신속히",
+    maxLabel: "느긋하게",
+  },
+  {
+    key: "drink" as keyof Omit<MuckBti, "health">,
+    title: "🍻 음주 반주",
+    sub: "식사에 반주를 즐기는 편인가요?",
+    minLabel: "식사만",
+    maxLabel: "반주 필수",
+  },
+];
+
+// useState 초기값도 수정
+const [mbti, setMbti] = useState<MuckBti>({
+  spicy: 3,
+  fullness: 3,
+  meatVeg: 3,
+  speed: 3,
+  drink: 3,
+  health: "none",
+});
 
   const healthOptions = [
     { id: "none", title: "🥗 자유롭게", desc: "제한 없이 당기는 것" },

@@ -34,13 +34,13 @@ export default function MyProfile({ initialMbti, onUpdate, gpsEnabled, onToggleG
     setCharacter(getMatchedCharacter(initialMbti));
   }, [initialMbti]);
 
-  const nodes: SliderNode[] = [
-    { key: "spicy", label: "🌶️ 맵기 선호 강도", emoji: "🌶️", minLabel: "순한맛", maxLabel: "지옥불핫" },
-    { key: "fullness", label: "🍚 포만감 규모", emoji: "🍚", minLabel: "가볍게", maxLabel: "든든배불" },
-    { key: "speed", label: "⏱️ 식사 속도/여유", emoji: "⏱️", minLabel: "신속히", maxLabel: "티타임여유" },
-    { key: "salty", label: "🧂 짠맛 선호 강도", emoji: "🧂", minLabel: "슴슴하게", maxLabel: "짭짤하게" },
-    { key: "drink", label: "🍻 가벼운 반주 빈도", emoji: "🍻", minLabel: "보리밥파", maxLabel: "소주가친구" }
-  ];
+const nodes: SliderNode[] = [
+  { key: "spicy", label: "⚡ 자극 강도", emoji: "⚡", minLabel: "순한맛", maxLabel: "짜릿한 MSG맛" },
+  { key: "fullness", label: "🍚 포만감 규모", emoji: "🍚", minLabel: "가볍게", maxLabel: "든든배불" },
+  { key: "meatVeg", label: "🥩 고기 vs 🥗 야채", emoji: "🥩", minLabel: "야채중심", maxLabel: "고기중심" },
+  { key: "speed", label: "⏱️ 식사 속도/여유", emoji: "⏱️", minLabel: "신속히", maxLabel: "느긋하게" },
+  { key: "drink", label: "🍻 가벼운 반주 빈도", emoji: "🍻", minLabel: "식사만", maxLabel: "반주필수" },
+];
 
   const handleSliderChange = (key: keyof Omit<MuckBti, "health">, value: number) => {
     const updated = { ...localMbti, [key]: value };
@@ -74,7 +74,7 @@ export default function MyProfile({ initialMbti, onUpdate, gpsEnabled, onToggleG
     const params = [
       localMbti.spicy,
       localMbti.fullness,
-      localMbti.salty,
+      localMbti.meatVeg,
       localMbti.speed,
       localMbti.drink,
       localMbti.health

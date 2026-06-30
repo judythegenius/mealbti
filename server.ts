@@ -20,7 +20,61 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
-// ===================== Helpers =====================
+
+const googlePlaceCache = new Map<string, { data: any; ts: number }>();
+const CACHE_TTL = 86400000;
+
+async function getGooglePlaceDetails(name: string, address: string): Promise<{
+  hours: string | null;
+  menuItems: string[];
+} | null> {
+  const kstNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+  const todayKr = days[kstNow.getDay()];
+  const dateStr = kstNow.toISOString().slice(0, 10);
+
+  const cacheKey = `${name}_${address}_${dateStr}`;
+  const cached = googlePlaceCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
+
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const findRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(name + " " + address)}&inputtype=textquery&fields=place_id&language=ko&key=${apiKey}`
+    );
+    const findData: any = await findRes.json();
+    if (!findData.candidates?.length) return null;
+
+    const placeId = findData.candidates[0].place_id;
+
+    const detailRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=opening_hours&language=ko&key=${apiKey}`
+    );
+    const detailData: any = await detailRes.json();
+    const result = detailData.result || {};
+
+    let hours: string | null = null;
+    const weekdayText = result.opening_hours?.weekday_text;
+    if (weekdayText?.length) {
+      console.log(`=== weekdayText:`, JSON.stringify(weekdayText));
+      console.log(`=== 오늘 요일: ${todayKr}`);
+      const todayLine = weekdayText.find((l: string) => l.startsWith(todayKr));
+      console.log(`=== todayLine: ${todayLine}`);
+      hours = todayLine ? todayLine.replace(/^.*?:\s*/, "") : null;
+    }
+
+    const finalResult = { hours, menuItems: [] };
+    googlePlaceCache.set(cacheKey, { data: finalResult, ts: Date.now() });
+    console.log(`=== Google Places 성공: ${name} | 시간: ${hours}`);
+    return finalResult;
+
+  } catch (e) {
+    console.error(`Google Places 실패 (${name}):`, e);
+    return null;
+  }
+}
 
 function calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3;
@@ -35,159 +89,6 @@ function calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: numb
   return R * c;
 }
 
-function getMockRestaurants(lat: number, lon: number, maxRadiusM: number = 1000, regionAddress: string = ""): Restaurant[] {
-  const hubs = [
-    {
-      name: "gangnam", centerLat: 37.4979, centerLon: 127.0276,
-      templates: [
-        { name: "땀땀 강남본점", category: "아시아음식 > 베트남요리", address: "서울 강남구 역삼동 817-31", menu_preview: ["소곱창 쌀국수", "숯불 직화 소고기 국수", "짜조"] },
-        { name: "창고43 강남점", category: "한식 > 소고기구이", address: "서울 강남구 테헤란로 109", menu_preview: ["한우 설화등심", "창고 스페셜", "깍두기볶음밥"] },
-        { name: "정돈 강남점", category: "일식 > 돈까스", address: "서울 강남구 역삼동 811-4", menu_preview: ["안심 돈카츠", "등심 돈카츠", "새우 카츠 세트"] },
-        { name: "무월식탁 강남점", category: "한식 > 가정식", address: "서울 강남구 역삼동 812-15", menu_preview: ["한방바베큐보쌈", "간장새우덮밥", "낙지삼겹살덮밥"] },
-        { name: "혜장국", category: "한식 > 국밥", address: "서울 서초구 반포대로30길 106", menu_preview: ["한우 육개장", "차돌 수육", "내장탕"] },
-        { name: "샐러디 역삼점", category: "음식점 > 샐러드", address: "서울 강남구 테헤란로22길 15", menu_preview: ["칠리베이컨 웜볼", "우삼겹 웜랩", "시저치킨 샐러드"] },
-        { name: "마라공방 강남역점", category: "중식 > 마라탕", address: "서울 강남구 테헤란로1길 10", menu_preview: ["마라탕", "마라샹궈", "꿔바로우"] },
-        { name: "구스아일랜드 브루하우스", category: "술집 > 호프/맥주", address: "서울 강남구 역삼로 118", menu_preview: ["수제맥주", "구스 IPA", "바비큐 플래터"] },
-        { name: "신선설농탕 서초점", category: "한식 > 설렁탕", address: "서울 서초구 반포동 748-1", menu_preview: ["설농탕", "도가니탕", "만두설농탕"] },
-        { name: "슬로우파크", category: "카페/양식 > 브런치", address: "서울 서초구 방배중앙로 204", menu_preview: ["에그 베네딕트", "프렌치 토스트", "더치 베이비"] }
-      ]
-    },
-    {
-      name: "hongdae", centerLat: 37.5575, centerLon: 126.9244,
-      templates: [
-        { name: "소금집하우스 망원", category: "양식 > 샌드위치", address: "서울 마포구 월드컵로19길 14", menu_preview: ["잠봉뵈르 샌드위치", "피그앤피그", "수제 소시지"] },
-        { name: "우동카덴", category: "일식 > 우동", address: "서울 마포구 양화로7길 4.5", menu_preview: ["청우동", "붓카케 우동", "텐토지 우동"] },
-        { name: "을밀대 마포본점", category: "한식 > 평양냉면", address: "서울 마포구 숭문길 24", menu_preview: ["물냉면", "비빔냉면", "녹두전"] },
-        { name: "하카타분코", category: "일식 > 라멘", address: "서울 마포구 독막로19길 43", menu_preview: ["인라멘", "청라멘", "차슈덮밥"] },
-        { name: "합정옥", category: "한식 > 곰탕", address: "서울 마포구 양화로1길 21", menu_preview: ["곰탕", "속대국", "수육"] },
-        { name: "이치류 홍대본점", category: "일식 > 양고기구이", address: "서울 마포구 잔다리로3안길 44", menu_preview: ["생살치살", "양갈비", "오뎅탕"] },
-        { name: "마산달래아구찜", category: "한식 > 아구찜", address: "서울 마포구 어울마당로 143-1", menu_preview: ["아구찜", "해물탕", "볶음밥"] }
-      ]
-    },
-    {
-      name: "yeouido", centerLat: 37.5216, centerLon: 126.9242,
-      templates: [
-        { name: "진주집", category: "한식 > 국수", address: "서울 영등포구 국제금융로6길 33", menu_preview: ["냉콩국수", "닭칼국수", "접시만두"] },
-        { name: "화목순대국 여의도점", category: "한식 > 순대국", address: "서울 영등포구 여의대방로 383", menu_preview: ["순대국밥", "내장탕", "머리고기"] },
-        { name: "희정식당", category: "한식 > 부대찌개", address: "서울 영등포구 여의나루로 117", menu_preview: ["희정 부대찌개", "T본 스테이크", "모듬구이"] },
-        { name: "미진 일식 여의도점", category: "일식 > 소바", address: "서울 영등포구 국제금융로2길 37", menu_preview: ["메밀소바", "초밥 정식", "돈까스"] },
-        { name: "창고43 여의도강변점", category: "한식 > 소고기구이", address: "서울 영등포구 여의서로 43", menu_preview: ["창고 스페셜", "한우 등심", "깍두기볶음밥"] },
-        { name: "바스버거 여의도점", category: "음식점 > 수제버거", address: "서울 영등포구 국제금융로2길 36", menu_preview: ["바스버거", "더블바스버거", "트러플칩스"] }
-      ]
-    },
-    {
-      name: "sinsa", centerLat: 37.5164, centerLon: 127.0205,
-      templates: [
-        { name: "한추", category: "술집 > 치킨/호프", address: "서울 강남구 논현로175길 68", menu_preview: ["고추튀김", "한추떡볶이", "후라이드치킨"] },
-        { name: "신사전", category: "한식 > 요리주점", address: "서울 강남구 도산대로11길 18", menu_preview: ["치즈감자전", "모듬전", "벌집꿀막걸리"] },
-        { name: "김북순큰남비집 신사본점", category: "한식 > 김치찌개", address: "서울 강남구 압구정로2길 15", menu_preview: ["목살김치찌개", "참치김치찌개", "초란뚝배기탕"] },
-        { name: "은행골 신사점", category: "일식 > 초밥", address: "서울 강남구 강남대로152길 42", menu_preview: ["특상초밥", "특선초밥", "도로초밥"] },
-        { name: "쮸즈 신사점", category: "중식 > 딤섬", address: "서울 강남구 도산대로17길 13", menu_preview: ["소룡포", "하가우", "탄탄면"] },
-        { name: "레이브릭스", category: "카페/양식 > 브런치", address: "서울 강남구 도산대로15길 18", menu_preview: ["시나몬플랫화이트", "팬케이크", "아이스크림 크로플"] }
-      ]
-    },
-    {
-      name: "pangyo", centerLat: 37.3948, centerLon: 127.1111,
-      templates: [
-        { name: "스시쿤", category: "일식 > 오마카세", address: "경기 성남시 분당구 대왕판교로 660", menu_preview: ["런치 오마카세", "디너 스페셜", "모듬 사시미"] },
-        { name: "낙생육가", category: "한식 > 삼겹살", address: "경기 성남시 분당구 판교역로 231", menu_preview: ["삼겹살 구이", "목살구이", "김치찌개찌개"] },
-        { name: "동청담 판교본점", category: "중식 > 짜장면", address: "경기 성남시 분당구 판교역로 240", menu_preview: ["수제 유니짜장", "탕수육", "삼선짬뽕"] },
-        { name: "커스텀샐러드 판교점", category: "음식점 > 샐러드", address: "경기 성남시 분당구 판교역로192번길 14", menu_preview: ["샐러디 웜볼", "아보카도 샐러드", "그릭요거트"] },
-        { name: "평양면옥 분당점", category: "한식 > 평양냉면", address: "경기 성남시 분당구 지원로 3", menu_preview: ["평양식 물냉면", "평양만두", "제육"] }
-      ]
-    },
-    {
-      name: "haeundae", centerLat: 35.1631, centerLon: 129.1589,
-      templates: [
-        { name: "해운대 소문난암소갈비집", category: "한식 > 소고기구이", address: "부산 해운대구 중동2로10번길 32-10", menu_preview: ["생갈비", "양념갈비", "감자사리"] },
-        { name: "금수복국 해운대본점", category: "한식 > 복어", address: "부산 해운대구 중동1로43번길 23", menu_preview: ["은복지리", "까치복국", "복튀김"] },
-        { name: "해운대 가야밀면", category: "한식 > 밀면", address: "부산 해운대구 좌동순환로 27", menu_preview: ["물밀면", "비빔밀면", "고기만두"] },
-        { name: "초량밀면 해운대점", category: "한식 > 밀면", address: "부산 해운대구 구남로 20", menu_preview: ["물밀면 대", "비빔밀면", "왕만두"] },
-        { name: "해운대 원조할매국밥", category: "한식 > 국밥", address: "부산 해운대구 구남로21번길 27", menu_preview: ["소고기국밥", "따로국밥", "소고기국수"] },
-        { name: "해운대 혜성막창집", category: "한식 > 곱창구이", address: "부산 해운대구 중동1로19번길 29", menu_preview: ["소막창구이", "대창구이", "곱창전골"] }
-      ]
-    }
-  ];
-
-  let bestHub = hubs[0];
-  let minHubDist = Infinity;
-  for (const h of hubs) {
-    const dist = calculateHaversine(lat, lon, h.centerLat, h.centerLon);
-    if (dist < minHubDist) { minHubDist = dist; bestHub = h; }
-  }
-
-  let selectedTemplates = bestHub.templates;
-
-  if (minHubDist > 15000) {
-    selectedTemplates = [
-      { name: "본죽&비빔밥", category: "한식 > 죽/비빔밥", address: "중앙대로 352길", menu_preview: ["낙지김치죽", "단호박야채죽", "불고기비빔밥"] },
-      { name: "써브웨이", category: "음식점 > 샌드위치", address: "중앙광장로 24", menu_preview: ["이탈리안 비엠티", "에그마요", "플랫브레드"] },
-      { name: "홍콩반점0410", category: "중식 > 짜장면", address: "대학가 중앙로 18", menu_preview: ["짜장면", "짬뽕밥", "찹쌀탕수육"] },
-      { name: "엽기떡볶이", category: "한식 > 분식", address: "맛거리시장 골목 12", menu_preview: ["동대문 엽기떡볶이", "엽기닭볶음탕", "튀김만두"] },
-      { name: "굽네치킨", category: "음식점 > 치킨", address: "대로변길 8-2", menu_preview: ["오븐고추바사삭", "오리지널 치킨", "갈비천왕"] },
-      { name: "스타벅스", category: "카페/양식 > 커피전문점", address: "중앙스퀘어빌딩 1층", menu_preview: ["아이스 카페 아메리카노", "돌체 콜드 브루", "블루베리 쿠키치즈케이크"] },
-      { name: "청진동해장국", category: "한식 > 해장국", address: "전통시장 터길 9", menu_preview: ["뼈다귀해장국", "선지해장국", "우거지탕"] },
-      { name: "가마치통닭", category: "음식점 > 치킨", address: "정성거리 36", menu_preview: ["가마치옛날통닭", "순살양념", "똥집튀김"] }
-    ];
-  }
-
-  return selectedTemplates.map((t, idx) => {
-    const angle = (idx * 2 * Math.PI) / selectedTemplates.length;
-    const radiusInKm = (maxRadiusM / 1000) * (0.05 + (idx / selectedTemplates.length) * 0.85);
-    const latOffset = (radiusInKm / 111.3) * Math.cos(angle);
-    const lonOffset = (radiusInKm / (111.3 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
-    const rLat = lat + latOffset;
-    const rLon = lon + lonOffset;
-    const distM = Math.round(calculateHaversine(lat, lon, rLat, rLon));
-
-    let baseRegion = "";
-    if (regionAddress) {
-      const words = regionAddress.replace(/\(.*?\)/g, "").replace("인근", "").trim().split(/\s+/);
-      const filtered = words.filter(w =>
-        w.endsWith("시") || w.endsWith("구") || w.endsWith("동") || w.endsWith("군") ||
-        w.endsWith("구역") || w.endsWith("동가") || w.endsWith("읍") || w.endsWith("면") ||
-        w.endsWith("특별시") || w.endsWith("광역시") || w.endsWith("도")
-      );
-      if (filtered.length > 0) baseRegion = filtered.slice(0, 3).join(" ");
-    }
-    if (!baseRegion || baseRegion.split(" ").length < 2) {
-      if (lat > 37.0 && lat < 38.0 && lon > 126.5 && lon < 127.5) baseRegion = "서울 마포구 서교동";
-      else if (lat > 35.0 && lat < 35.5 && lon > 129.0 && lon < 129.3) baseRegion = "부산 해운대구 우동";
-      else baseRegion = "서울 강남구 역삼동";
-    }
-
-    const originalWords = t.address.split(" ");
-    const suffixWords = originalWords.filter(w =>
-      !w.endsWith("서울") && !w.endsWith("경기") && !w.endsWith("부산") && !w.endsWith("인천") &&
-      !w.endsWith("대구") && !w.endsWith("대전") && !w.endsWith("광주") && !w.endsWith("제주") &&
-      !w.endsWith("특별자치도") && !w.endsWith("광역시") && !w.endsWith("특별시") &&
-      !w.endsWith("시") && !w.endsWith("구") && !w.endsWith("동") && !w.endsWith("군") && !w.endsWith("읍") && !w.endsWith("면")
-    );
-    const suffix = suffixWords.length > 0 ? suffixWords.join(" ") : `${12 + idx * 5}길`;
-    const localizedAddress = `${baseRegion} ${suffix}`.replace(/\s+/g, " ");
-
-    return {
-      name: t.name,
-      category: t.category,
-      distance_meters: distM,
-      address: localizedAddress,
-      menu_preview: t.menu_preview,
-      kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(t.name)}`,
-      x: rLon.toString(),
-      y: rLat.toString()
-    };
-  });
-}
-
-let aiClient: GoogleGenAI | null = null;
-function getAi(): GoogleGenAI {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error("GEMINI_API_KEY is missing from environment secrets.");
-    aiClient = new GoogleGenAI({ apiKey: key });
-  }
-  return aiClient;
-}
 
 async function generateCommentsWithRetry(ai: any, commentPrompt: string, retries = 1): Promise<string> {
   for (let i = 0; i <= retries; i++) {
@@ -215,53 +116,6 @@ function getDeterministicRating(name: string): number {
   for (let i = 0; i < name.length; i++) sum += name.charCodeAt(i);
   const rating = 4.1 + (sum % 9) / 10;
   return parseFloat(rating.toFixed(1));
-}
-
-interface Hotspot { name: string; lat: number; lon: number; address: string; }
-
-const OFFLINE_HOTSPOTS: Hotspot[] = [
-  { name: "gangnam", lat: 37.4979, lon: 127.0276, address: "서울시 강남구 역삼동 대남빌딩 인근" },
-  { name: "hongdae", lat: 37.5575, lon: 126.9244, address: "서울특별시 마포구 서교동 홍대거리 인근" },
-  { name: "yeouido", lat: 37.5216, lon: 126.9242, address: "서울특별시 영등포구 여의도동 여의도역 인근" },
-  { name: "sinsa", lat: 37.5164, lon: 127.0205, address: "서울특별시 강남구 신사동 가로수길 인근" },
-  { name: "pangyo", lat: 37.3948, lon: 127.1111, address: "경기도 성남시 분당구 삼평동 판교역 인근" },
-  { name: "haeundae", lat: 35.1631, lon: 129.1589, address: "부산광역시 해운대구 우동 해운대역 인근" },
-  { name: "seongsu", lat: 37.5446, lon: 127.0560, address: "서울특별시 성동구 성수동 성수역 인근" },
-  { name: "seoul_station", lat: 37.5545, lon: 126.9708, address: "서울특별시 중구 봉래동 서울역 인근" },
-  { name: "jeju", lat: 33.4996, lon: 126.5312, address: "제주특별자치도 제주시 이도동 인근" }
-];
-
-function findClosestOfflineHotspot(lat: number, lon: number): Hotspot {
-  let closest = OFFLINE_HOTSPOTS[0];
-  let minDistance = Infinity;
-  for (const spot of OFFLINE_HOTSPOTS) {
-    const dist = calculateHaversine(lat, lon, spot.lat, spot.lon);
-    if (dist < minDistance) { minDistance = dist; closest = spot; }
-  }
-  return closest;
-}
-
-function findOfflineGeocode(query: string): { lat: number; lon: number; address: string } | null {
-  const qClean = query.toLowerCase().replace(/\s+/g, "");
-  if (qClean.includes("강남") || qClean.includes("역삼")) return { lat: 37.4979, lon: 127.0276, address: "서울시 강남구 역삼동 대남빌딩 인근" };
-  if (qClean.includes("홍대") || qClean.includes("서교") || qClean.includes("망원") || qClean.includes("마포")) return { lat: 37.5575, lon: 126.9244, address: "서울특별시 마포구 서교동 홍대거리 인근" };
-  if (qClean.includes("여의도") || qClean.includes("영등포")) return { lat: 37.5216, lon: 126.9242, address: "서울특별시 영등포구 여의도동 여의도역 인근" };
-  if (qClean.includes("신사") || qClean.includes("압구정") || qClean.includes("가로수") || qClean.includes("논현")) return { lat: 37.5164, lon: 127.0205, address: "서울특별시 강남구 신사동 가로수길 인근" };
-  if (qClean.includes("판교") || qClean.includes("분당") || qClean.includes("성남")) return { lat: 37.3948, lon: 127.1111, address: "경기도 성남시 분당구 삼평동 판교역 인근" };
-  if (qClean.includes("해운대") || qClean.includes("부산")) return { lat: 35.1631, lon: 129.1589, address: "부산광역시 해운대구 우동 해운대역 인근" };
-  if (qClean.includes("성수") || qClean.includes("성동")) return { lat: 37.5446, lon: 127.0560, address: "서울특별시 성동구 성수동 성수역 인근" };
-  if (qClean.includes("서울역") || qClean.includes("종로") || qClean.includes("을지로") || qClean.includes("중구")) return { lat: 37.5545, lon: 126.9708, address: "서울특별시 중구 봉래동 서울역 인근" };
-  if (qClean.includes("제주")) return { lat: 33.4996, lon: 126.5312, address: "제주특별자치도 제주시 이도동 인근" };
-  if (qClean.includes("수원")) return { lat: 37.2635, lon: 127.0286, address: "경기도 수원시 팔달구 인계동 인근" };
-  if (qClean.includes("인천")) return { lat: 37.4563, lon: 126.7052, address: "인천광역시 남동구 구월동 인근" };
-  if (qClean.includes("대전")) return { lat: 36.3504, lon: 127.3845, address: "대전광역시 서구 둔산동 인근" };
-  if (qClean.includes("대구")) return { lat: 35.8714, lon: 128.6014, address: "대구광역시 중구 동성로 인근" };
-  if (qClean.includes("광주")) return { lat: 35.1595, lon: 126.8526, address: "광주광역시 서구 상무지구 인근" };
-  if (qClean.includes("잠실") || qClean.includes("송파")) return { lat: 37.5133, lon: 127.1022, address: "서울특별시 송파구 잠실동 인근" };
-  if (qClean.includes("이태원") || qClean.includes("용산") || qClean.includes("한남")) return { lat: 37.5345, lon: 126.9943, address: "서울특별시 용산구 이태원동 인근" };
-  if (qClean.includes("신촌") || qClean.includes("이대")) return { lat: 37.5598, lon: 126.9385, address: "서울특별시 서대문구 신촌역 인근" };
-  if (qClean.includes("서면") || qClean.includes("부산진")) return { lat: 35.1578, lon: 129.0591, address: "부산광역시 부산진구 서면역 인근" };
-  return null;
 }
 
 function extractNeighborhood(addressText: string): string {
@@ -540,206 +394,199 @@ function generateDynamicComment(
   const subMenu = menus[1] || "";
   const catLeaf = cat.split(" > ").pop() || "맛집";
   const menuLabel = mainMenu || subMenu || catLeaf;
-  const commentPool = [
-    `${name}에서는 ${menuLabel} 중심으로 오늘 ${mealType}을 부담 없이 잡기 좋아요.`,
-    `${menuLabel}이 당기는 날이면 ${name} 쪽이 무난한 선택지예요.`,
-    `${catLeaf} 분위기 안에서 ${mainMenu || "대표 메뉴"}를 가볍게 맞춰보기 좋아요.`,
-    `${mealType} 시간대에 너무 과하지 않게 먹기 좋은 흐름이에요.`,
-    `${name}은 메뉴 구성이 뚜렷해서 오늘 입맛을 정하기 쉬운 편이에요.`
-  ];
-  if (mbti.spicy >= 4) commentPool.push(`${mainMenu || catLeaf} 쪽으로 매콤한 만족감을 기대해볼 만해요.`);
-  if (mbti.fullness >= 4) commentPool.push(`${name}에서 든든하게 채우는 식사로 가기 좋아요.`);
-  if (mbti.speed <= 2) commentPool.push(`빠르게 먹고 이동해야 할 때 ${name}의 ${menuLabel} 조합이 잘 맞아요.`);
-  if (mbti.speed >= 4) {
-    commentPool.push(`${name}에서 ${menuLabel}을 천천히 맛보는 여유 있는 식사로 맞춰봤어요.`);
-    commentPool.push(`오늘은 ${mainMenu || catLeaf}을 중심으로 한 끼의 리듬을 느긋하게 가져가기 좋아요.`);
-    commentPool.push(`${name}은 급하게 넘기기보다 메뉴의 맛을 차분히 즐기기 좋은 선택이에요.`);
-  }
-  if (mbti.drink >= 4 && (mealType === "저녁" || mealType === "야식")) {
-    commentPool.push(`${mainMenu || catLeaf}에 가볍게 한잔 곁들이기 좋은 저녁 선택지예요.`);
-  }
+
+  // ── 시드 기반 일관성 (같은 날 같은 식당은 같은 문구) ──
   const seedText = `${name}-${mealType}-${mainMenu}-${mbti.spicy}-${mbti.fullness}-${mbti.speed}-${new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}`;
   const seed = Array.from(seedText).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return commentPool[seed % commentPool.length];
 
-  // ── 메뉴명 기반 섬세한 코멘트 풀 ──────────────────────────────────
-
+  // ── 1순위: 메뉴/카테고리 키워드 정밀 매칭 ──────────────────────────
   const menuComments: Record<string, string[]> = {
     "베트남": [
-  `${mainMenu || "쌀국수"}의 맑고 깊은 육수와 라임향이 입 안을 상쾌하게 열어줘요`,
-  "베트남 현지의 향긋한 허브 향이 코끝을 자극하는, 가볍지만 풍성한 한 끼예요",
-  `${name}의 진한 육수베이스가 속을 따뜻하게 채워주면서도 가볍게 마무리돼요`
-],
-"이자카야": [
-  `${mealType === "저녁" || mealType === "야식" ? "오늘 저녁" : "오늘"} 일본식 분위기에서 한 잔, ${name}의 안주 라인업이 기대돼요`,
-  "야키토리 한 꼬치에 하이볼 한 잔, 오늘 피로를 이렇게 풀어보세요",
-  `${mainMenu || "안주"} 한 접시와 함께하는 시간, 혼술도 분위기 있게 즐길 수 있어요`
-],
-"일본식주점": [
-  "은은한 조명 아래 사케 한 잔과 정갈한 안주, 오늘 저녁의 완성이에요",
-  `${name}의 섬세한 일식 안주가 오늘 밤을 특별하게 만들어줄 거예요`,
-  "퇴근 후 이자카야 감성, 오늘 하루 수고한 자신에게 주는 선물이에요"
-],
-"동남아": [
-  "동남아 특유의 향긋한 향신료 향이 일상에서 잠깐 여행을 떠나게 해줘요",
-  `${mainMenu || "메인 메뉴"}의 이국적인 소스가 입맛을 새롭게 자극해줄 거예요`,
-  "매콤하고 새콤한 동남아 풍미, 오늘 기분 전환이 필요한 날이에요"
-],
-"주점": [
-  `${mealType === "저녁" || mealType === "야식" ? "오늘 저녁은" : "오늘은"} ${name}에서 좋은 안주와 함께 편하게 쉬어가요`,
-  `${mainMenu || "안주"} 한 접시에 가볍게 한 잔, 오늘 이 조합이 딱이에요`,
-  "맛있는 안주와 시원한 한 잔, 오늘 하루의 마무리를 여기서 해보세요"
-],
+      `${mainMenu || "쌀국수"}의 맑고 깊은 육수와 라임향이 입 안을 상쾌하게 열어줘요`,
+      "베트남 현지의 향긋한 허브 향이 코끝을 자극하는, 가볍지만 풍성한 한 끼예요",
+    ],
+    "이자카야": [
+      `${mealType === "저녁" || mealType === "야식" ? "오늘 저녁" : "오늘"} 일본식 분위기에서 한 잔, ${name}의 안주 라인업이 기대돼요`,
+      "야키토리 한 꼬치에 하이볼 한 잔, 오늘 피로를 이렇게 풀어보세요",
+    ],
     "쌀국수": [
       `${mainMenu}의 맑고 깊은 육수가 속을 따뜻하게 감싸줄 거예요`,
-      "쌀국수 특유의 부드러운 면발과 향긋한 고수 향이 오늘 하루를 리셋시켜줄 거예요",
-      "가볍지만 든든한 쌀국수 한 그릇, 오늘 오후를 버티게 해줄 에너지예요"
+      "가볍지만 든든한 쌀국수 한 그릇, 오늘 오후를 버티게 해줄 에너지예요",
     ],
     "냉면": [
       "탱글탱글한 면발에 새콤달콤한 육수, 지금 이 계절에 딱 맞는 선택이에요",
       `${mainMenu} 한 그릇이면 더위도 피로도 한방에 날아가요`,
-      "질 좋은 메밀 향이 코끝을 자극하는, 정직한 맛집이에요"
     ],
     "마라탕": [
       "얼얼하게 혀를 감싸는 마라 향, 오늘 스트레스를 불태울 준비 됐나요?",
       `${mainMenu}의 기름진 감칠맛과 화끈한 매운맛이 중독적으로 당기는 날이에요`,
-      "한 숟가락 뜨는 순간 입 안 가득 퍼지는 마라 향, 오늘 여기가 맞아요"
+    ],
+    "마라샹궈": [
+      "재료 직접 골라 담는 재미, 거기다 마라 향까지 — 오늘 여기가 정답이에요",
+      "얼얼하고 고소한 마라 기름이 입 안 가득 퍼지는 순간이 기다리고 있어요",
     ],
     "삼겹살": [
       "불판 위에서 지글지글 익어가는 소리만으로도 배고파지는 곳이에요",
       `${mainMenu} 한 점에 쌈 한 장, 오늘 이 조합을 거부할 이유가 없어요`,
-      "두툼하게 썬 고기와 김치의 조화, 오늘 저녁은 여기서 마음껏 드세요"
     ],
     "곱창": [
       "특유의 고소하고 진한 내장 향이 진짜 단골 맛집의 증거예요",
       `${mainMenu}의 쫄깃한 식감이 소주 한 잔을 절로 부르는 날이에요`,
-      "어른들이 아는 진짜 맛, 한 점 씹을 때마다 깊은 감칠맛이 올라와요"
     ],
     "초밥": [
       "장인이 한 점씩 쥐어낸 샤리와 네타의 온도 차가 입 안에서 완성돼요",
       `${mainMenu}의 윤기 있는 밥알과 신선한 토핑이 오늘 특별한 한 끼를 만들어줄 거예요`,
-      "군더더기 없이 정갈한 스시 한 점, 오늘만큼은 느긋하게 음미해보세요"
     ],
     "라멘": [
       "몇 시간 우려낸 진한 육수가 면발에 스며든 걸 한 입에 느껴보세요",
-      `${mainMenu}의 농후한 돈코츠 향이 문 앞에서부터 발길을 붙잡아요`,
-      "탱탱하게 삶아낸 면과 부드러운 차슈, 오늘 위로가 필요한 날이에요"
+      `${mainMenu}의 농후한 향이 문 앞에서부터 발길을 붙잡아요`,
     ],
     "돈까스": [
       "겉은 바삭, 속은 촉촉한 커틀릿의 정석을 오늘 여기서 만나보세요",
       `${mainMenu}의 두꺼운 두께감이 한 입 베어 물면 육즙을 터뜨려줄 거예요`,
-      "경양식 돈까스 특유의 소스와 함께라면 밥 한 공기 거뜬해요"
     ],
     "칼국수": [
       "직접 밀어낸 넓적한 면발에 진한 멸치 육수, 어머니 손맛이 그리운 날이에요",
       `${mainMenu} 한 그릇이면 속이 따끈하게 채워지는 느낌이에요`,
-      "졸깃한 생면과 구수한 국물이 빈속을 포근하게 감싸줘요"
     ],
     "비빔밥": [
       "형형색색의 나물과 고슬고슬한 밥, 비벼 먹는 순간 맛의 하모니가 시작돼요",
       `${mainMenu}에 고추장 한 숟가락 넣고 쓱쓱 비비면 오늘 점심 끝이에요`,
-      "신선한 채소와 참기름 향이 어우러진 한 그릇, 건강하게 충전하는 날이에요"
     ],
     "갈비": [
       "불 위에서 직화로 구워지는 갈비 향이 코끝을 자극하는 곳이에요",
       `${mainMenu}의 두툼한 살점이 뼈에서 떨어질 때의 쾌감, 오늘 여기서 느껴보세요`,
-      "양념이 잘 밴 갈비 한 대, 오늘 수고한 자신에게 주는 선물이에요"
     ],
     "국밥": [
       "뜨끈한 국물 한 숟가락이면 어제 피로가 싹 풀리는 기적의 한 그릇이에요",
       `${mainMenu}의 묵직한 뼈 육수가 속을 든든하게 채워줄 거예요`,
-      "새벽부터 우려낸 국물의 깊이, 한 끼가 이렇게 위로가 될 줄 몰랐을 거예요"
     ],
     "파스타": [
       "알덴테로 삶아낸 면에 소스가 윤기 있게 코팅된 비주얼부터 시작돼요",
       `${mainMenu}의 풍성한 소스가 입 안을 가득 채우는 이탈리안의 정수예요`,
-      "오늘만큼은 서울 한복판에서 유럽 어딘가의 점심을 즐겨보세요"
     ],
     "브런치": [
-      `${mainMenu}와 따뜻한 커피 한 잔, 오늘 아침만큼은 여유롭게 시작해보세요`,
+      `${mainMenu}와 따뜻한 커피 한 잔, 오늘 ${mealType}만큼은 여유롭게 시작해보세요`,
       "예쁜 플레이팅에 담긴 브런치 한 상, 먹기 전에 사진 한 장은 필수예요",
-      "에그 베네딕트의 흘러내리는 홀랜다이즈 소스가 오늘 아침을 특별하게 만들어줄 거예요"
     ],
     "샐러드": [
       "신선한 재료 본연의 맛을 살린 드레싱, 가볍지만 만족스러운 한 끼예요",
       `${mainMenu}의 알록달록한 색감이 입맛을 돋우고 영양도 챙겨줘요`,
-      "오늘은 몸이 원하는 걸 먹는 날, 신선한 한 그릇으로 속을 깨끗하게 비워보세요"
+    ],
+    "포케": [
+      "하와이 감성의 신선한 한 그릇, 눈도 입도 같이 행복해지는 점심이에요",
+      `${mainMenu}의 신선한 연어와 아보카도가 오늘 컨디션을 끌어올려 줄 거예요`,
     ],
     "족발": [
       "쫀득하게 삶아낸 껍데기와 부드러운 살점의 조화, 오늘 야식 고민 끝이에요",
       `${mainMenu}에 새우젓 한 점 곁들이면 소주 한 병이 순식간에 사라져요`,
-      "콜라겐 듬뿍 함유된 족발, 맛있게 먹으면서 피부까지 챙기는 현명한 선택이에요"
     ],
     "보쌈": [
-      "부드럽게 삶아낸 수육을 배추에 싸 먹는 그 순간, 진짜 한국 음식의 매력이에요",
+      "부드럽게 삶아낸 수육을 배추에 싸 먹는 그 순간, 한국 음식의 매력이에요",
       `${mainMenu}에 굴젓이나 새우젓을 얹으면 완성되는 조화, 어른들의 음식이에요`,
-      "담백하게 삶은 돼지고기와 김치의 시원한 신맛, 오늘 이 맛이 생각날 거예요"
     ],
     "치킨": [
       "갓 튀겨낸 바삭한 껍데기를 베어 무는 순간의 행복, 오늘 여기서 느껴봐요",
       `${mainMenu}의 매콤달콤한 소스가 손가락을 절로 핥게 만드는 집이에요`,
-      "황금빛으로 튀겨낸 치킨 한 마리, 오늘 수고한 자신에게 주는 작은 축제예요"
     ],
     "버거": [
       "두툼한 패티와 신선한 채소가 층층이 쌓인 비주얼, 한 입 크게 베어 물어야 해요",
       `${mainMenu}의 육즙이 터지는 순간, 다른 버거는 생각도 안 날 거예요`,
-      "수제 패티의 고기 향과 갓 구운 번의 조화, 패스트푸드와는 차원이 달라요"
     ],
     "떡볶이": [
       "쫀득쫀득한 떡이 매콤달콤한 소스를 머금은 그 맛, 한국인의 소울푸드예요",
       `${mainMenu}의 빨간 국물에 어묵 국물 한 모금이면 오늘 한 끼가 완성돼요`,
-      "매운 걸 좋아하는 사람이라면 이 집 떡볶이 소스에 반할 거예요"
     ],
     "짜장면": [
       "춘장의 구수한 향이 깊게 밴 소스와 탱탱한 면발, 중화요리의 정석이에요",
       `${mainMenu} 위에 달걀 프라이 하나 얹으면 이 이상의 점심은 없어요`,
-      "면과 소스를 비벼 먹기 전 잠깐 비주얼 감상, 그게 또 재미예요"
     ],
     "짬뽕": [
       "얼큰하고 시원한 국물 한 숟가락이면 왜 이 집이 유명한지 바로 알게 돼요",
       `${mainMenu}의 풍성한 해물과 채소가 국물에 녹아든 깊은 맛이에요`,
-      "빨간 국물 위에 떠 있는 해산물의 비주얼만으로도 입에 침이 고이는 집이에요"
-    ],
-    "오마카세": [
-      "셰프의 선택을 믿고 앉아있으면 오늘 저녁이 특별해지는 경험이에요",
-      `${mainMenu} 코스 한 편, 계절 식재료로 이야기를 풀어내는 맛의 여정이에요`,
-      "한 접시 한 접시 설명을 들으며 먹는 시간, 오늘만큼은 시간을 사는 거예요"
     ],
     "곰탕": [
       "몇 날 며칠을 우려낸 뼈 국물의 깊이, 첫 숟가락에 그 정성이 느껴져요",
       `${mainMenu}에 소금 간 살짝 하면 완성되는 담백함, 이게 진짜 한식이에요`,
-      "뽀얗게 우러난 국물과 부드러운 고기, 오늘 속이 비었다면 여기예요"
+    ],
+    "설렁탕": [
+      "뽀얗게 우러난 국물과 부드러운 고기, 오늘 속이 비었다면 여기예요",
+      "새벽부터 우려낸 사골 국물 한 그릇이면 오늘 하루 버틸 에너지 충전 완료예요",
+    ],
+    "오마카세": [
+      "셰프의 선택을 믿고 앉아있으면 오늘 저녁이 특별해지는 경험이에요",
+      `${mainMenu} 코스 한 편, 계절 식재료로 이야기를 풀어내는 맛의 여정이에요`,
+    ],
+    "스테이크": [
+      "두툼하게 구워낸 고기의 육즙이 칼을 댔을 때 흘러내리는 그 순간이에요",
+      `${mainMenu} 한 접시, 오늘만큼은 자신에게 제대로 투자하는 날이에요`,
+    ],
+    "우동": [
+      "탱글하고 굵은 면발이 따뜻한 가쓰오 육수에 잠긴 순간, 일본 감성이 가득해요",
+      `${mainMenu} 한 그릇이면 뭔가 부족한 오늘 점심을 채워줄 수 있어요`,
+    ],
+    "소바": [
+      "메밀 특유의 고소하고 담백한 향, 소스에 살짝 찍어 먹는 맛이 예술이에요",
+      "깔끔하고 가볍게, 오늘 속 편하게 한 끼 하고 싶을 때 딱 맞는 선택이에요",
     ],
   };
 
-  // 메뉴 키워드 매칭
   for (const [keyword, comments] of Object.entries(menuComments)) {
-    const matched = menus.some(m => m.includes(keyword)) || cat.includes(keyword) || name.includes(keyword);
+    const matched =
+      menus.some(m => m.includes(keyword)) ||
+      cat.includes(keyword) ||
+      name.includes(keyword);
     if (matched) {
-      return comments[Math.floor(Math.random() * comments.length)];
+      return comments[seed % comments.length];
     }
   }
 
-  // ── 카테고리 + 성향 복합 코멘트 (메뉴 키워드 미매칭 시) ──────────────
-
-  // 아침/브런치 시간대
+  // ── 2순위: 시간대별 분기 ──────────────────────────────────────────
   if (mealType === "아침") {
-    if (cat.includes("카페") || cat.includes("베이커리")) return `${name}의 갓 구운 빵 향과 커피 한 잔으로 오늘 하루를 시작해보세요`;
-    if (cat.includes("한식")) return `${mainMenu || "따뜻한 국물"} 한 그릇으로 아침을 든든하게 채워보세요`;
-    return `이른 아침, ${name}에서 조용하고 여유로운 한 끼로 하루를 열어보세요`;
+    const morningPool = [
+      `이른 아침, ${name}에서 조용하고 여유로운 한 끼로 하루를 열어보세요`,
+      `${mainMenu || "아침 메뉴"} 한 그릇으로 오늘 하루를 든든하게 시작해요`,
+      cat.includes("카페") || cat.includes("베이커리")
+        ? `${name}의 갓 구운 빵 향과 커피 한 잔으로 오늘 하루를 시작해보세요`
+        : `따뜻한 ${mainMenu || catLeaf} 한 그릇, 아침에 이 선택이면 후회 없어요`,
+    ];
+    return morningPool[seed % morningPool.length];
   }
 
-  // 야식 시간대
   if (mealType === "야식") {
-    if (mbti.drink >= 4) return `${mainMenu || "안주"} 한 접시에 한 잔 걸치기 딱 좋은 밤이에요`;
-    if (cat.includes("치킨")) return "야식의 왕, 치킨. 오늘 밤 자책 없이 즐겨도 돼요";
-    return `늦은 밤 ${name}에서 오늘 하루의 마무리를 맛있게 해보세요`;
+    const latePool = [
+      mbti.drink >= 4
+        ? `${mainMenu || "안주"} 한 접시에 한 잔 걸치기 딱 좋은 밤이에요`
+        : `늦은 밤 ${name}에서 오늘 하루의 마무리를 맛있게 해보세요`,
+      cat.includes("치킨")
+        ? "야식의 왕, 치킨. 오늘 밤 자책 없이 즐겨도 돼요"
+        : `${name}의 ${menuLabel}, 내일 걱정은 내일 하고 오늘 밤은 맛있게 먹어요`,
+      `야식으로 ${menuLabel}이 당기는 밤, 오늘은 이 선택이 맞아요`,
+    ];
+    return latePool[seed % latePool.length];
   }
 
-  // 건강 목표별
+  if (mealType === "저녁") {
+    const eveningPool = [
+      mbti.drink >= 4
+        ? `${mainMenu || "메뉴"} 한 점에 가볍게 한 잔, 오늘 저녁 이 이상 필요 없어요`
+        : `${name}에서 오늘 하루 마무리로 딱 맞는 저녁이에요`,
+      `퇴근 후 ${name}의 ${menuLabel}, 오늘 수고한 자신에게 주는 작은 선물이에요`,
+      `저녁은 ${menuLabel}으로 든든하게, ${name}에서 하루를 마무리해요`,
+    ];
+    return eveningPool[seed % eveningPool.length];
+  }
+
+  // 점심 (default)
+  const lunchPool = [
+    `${name}의 ${menuLabel}, 오늘 점심 고민을 딱 끊어줄 선택이에요`,
+    `${mainMenu || catLeaf} 한 그릇으로 오후 업무까지 버텨낼 에너지 충전이에요`,
+    `점심엔 역시 ${menuLabel}, ${name}에서 빠르게 해결하고 여유 시간도 챙겨요`,
+  ];
+
+  // ── 3순위: 건강 목표 ──────────────────────────────────────────────
   if (mbti.health === "loss") {
-    if (cat.includes("한식") || cat.includes("가정식")) return `${mainMenu || "담백한 메뉴"}로 칼로리 걱정 없이 든든하게 한 끼 해결해요`;
-    return `가볍고 깔끔하게, 오늘 식단 목표를 지켜가면서도 맛있는 한 끼예요`;
+    return `가볍고 깔끔하게, 오늘 식단 목표를 지켜가면서도 만족스러운 한 끼예요`;
   }
   if (mbti.health === "gain") {
     return `${mainMenu || "고단백 메뉴"} 한 상으로 오늘 운동 후 영양을 빠르게 보충해보세요`;
@@ -748,62 +595,69 @@ function generateDynamicComment(
     return `정갈하고 자극 없는 ${name}의 한 상, 혈당 걱정 없이 맛있게 드세요`;
   }
 
-  // 성향별 복합
+ // ── 4순위: 성향 조합 (각각 풀로 만들어 seed로 분산) ────────────────
   if (mbti.spicy >= 4 && mbti.fullness >= 4) {
-    return `${name}에서 화끈하고 든든하게, 오늘 가장 확실한 한 끼예요`;
+    const pool = [
+      `${name}에서 화끈하고 든든하게, 오늘 가장 확실한 한 끼예요`,
+      `매콤하면서도 든든한 ${menuLabel}, ${name}이 오늘 정답이에요`,
+      `자극적이면서 배도 부르게, ${name}의 ${menuLabel}이 딱이에요`,
+    ];
+    return pool[seed % pool.length];
   }
   if (mbti.spicy >= 4) {
-    return `${mainMenu || "매콤한 메뉴"}의 칼칼한 맛이 입 안을 깨우는 경험이에요`;
+    const pool = [
+      `${mainMenu || "매콤한 메뉴"}의 칼칼한 맛이 입 안을 깨우는 경험이에요`,
+      `${name}의 ${menuLabel}, 매운맛이 당기는 오늘 딱 맞는 선택이에요`,
+      `화끈한 한 입이 필요할 때, ${name}이 그 답을 줄 거예요`,
+    ];
+    return pool[seed % pool.length];
   }
   if (mbti.spicy <= 2 && mbti.salty <= 2) {
-    return `자극 없이 재료 본연의 맛을 살린 ${name}, 오늘 속이 편해질 거예요`;
+    const pool = [
+      `자극 없이 재료 본연의 맛을 살린 ${name}, 오늘 속이 편해질 거예요`,
+      `순하고 담백한 ${menuLabel}, ${name}에서 부담 없이 즐겨보세요`,
+      `${name}의 ${menuLabel}은 자극 없이 깔끔하게 마무리되는 한 끼예요`,
+    ];
+    return pool[seed % pool.length];
   }
   if (mbti.fullness >= 4) {
-    return `${mainMenu || "메인 메뉴"} 한 상 앞에 앉으면 빈속 걱정은 끝이에요`;
+    const pool = [
+      `${mainMenu || "메인 메뉴"} 한 상 앞에 앉으면 빈속 걱정은 끝이에요`,
+      `든든하게 채우고 싶은 날, ${name}의 ${menuLabel}이 후회 없을 거예요`,
+      `${name}에서 푸짐하게, 오늘은 양 걱정 없이 드셔도 돼요`,
+    ];
+    return pool[seed % pool.length];
   }
   if (mbti.drink >= 4 && mealType === "저녁") {
-    return `${mainMenu || "메뉴"} 한 점에 가볍게 한 잔, 오늘 저녁 이 이상 필요 없어요`;
+    const pool = [
+      `${mainMenu || "메뉴"} 한 점에 가볍게 한 잔, 오늘 저녁 이 이상 필요 없어요`,
+      `${name}에서 안주 삼아 한 잔, 오늘 하루 마무리로 충분해요`,
+    ];
+    return pool[seed % pool.length];
+  }
+  if (mbti.speed <= 2) {
+    const pool = [
+      `주문하면 금방 나오는 ${name}, 오늘 ${mealType} 고민 끝이에요`,
+      `${name}에서 빠르게 해결하고 여유 시간을 만들어보세요`,
+      `${mainMenu || catLeaf} 한 그릇, 빠르게 먹고 에너지 충전 완료예요`,
+    ];
+    return pool[seed % pool.length];
+  }
+  if (mbti.speed >= 4) {
+    const pool = [
+      `${name}에서 서두르지 않고 음식 하나하나를 제대로 즐기는 시간이에요`,
+      `오늘은 ${menuLabel}을 천천히 음미하며 여유롭게 즐겨보세요`,
+      `${name}의 분위기 속에서 느긋하게 한 끼, 오늘은 그럴 자격이 있어요`,
+      `빠르게 먹기보다 ${menuLabel}의 맛을 차분히 느끼고 싶은 날이에요`,
+    ];
+    return pool[seed % pool.length];
   }
 
-  const catLeaf = cat.split(" > ").pop() || "맛집";
- if (mbti.speed <= 2) {
-  const speedComments = [
-    `${name}에서 빠르게 해결하고 여유 시간을 만들어보세요`,
-    `주문하면 금방 나오는 ${name}, 오늘 ${mealType} 고민 끝이에요`,
-    `${mainMenu || catLeaf} 한 그릇, 빠르게 먹고 에너지 충전 완료예요`
-  ];
-  return speedComments[Math.floor(Math.random() * speedComments.length)];
-}
-if (mbti.speed >= 4) {
-  return `${name}에서 서두르지 않고 음식 하나하나를 제대로 즐기는 시간이에요`;
+  return lunchPool[seed % lunchPool.length];
 }
 
-  // 최종 fallback - 식당명 + 카테고리 활용
-  const fallbacks = [
-    `${name}의 ${catLeaf}, 오늘 선택을 후회하지 않을 거예요`,
-    `${mainMenu || catLeaf} 한 그릇으로 오늘 하루 충전 완료예요`,
-    `${name}에서만 느낄 수 있는 그 맛, 오늘 직접 확인해보세요`,
-    `${catLeaf} 중에서도 ${name}이 오늘 당신의 먹BTI에 딱 맞아요`,
-  ];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-}
-
-// ===================== Routes =====================
-
-// ★ 이미지 프록시 엔드포인트 추가 - Naver 이미지 CORS 우회
 // 불안정 도메인 차단 + timeout 포함 이미지 프록시
-const BLOCKED_IMAGE_DOMAINS = ["imgcdn.bdtong.co.kr", "blogfiles.naver.net"];
-const ALLOWED_IMAGE_PATTERNS = [
-  "pstatic.net",
-  "naver.net",
-  "kakao.com",
-  "tistory.com",
-  "daumcdn.net",
-  "ncloudstorage",
-  "cdninstagram.com",
-  "fbcdn.net",
-  "instagram.com"
-];
+const BLOCKED_IMAGE_DOMAINS = ["imgcdn.bdtong.co.kr", "blogfiles.naver.net", "egloos.com"];
 
 app.get("/api/image-proxy", async (req, res) => {
   const url = req.query.url as string;
@@ -812,12 +666,11 @@ app.get("/api/image-proxy", async (req, res) => {
   let parsed: URL;
   try { parsed = new URL(url); } catch { return res.status(400).send("invalid url"); }
 
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return res.status(400).send("invalid protocol");
+  }
   if (BLOCKED_IMAGE_DOMAINS.some(d => parsed.hostname.includes(d))) {
     return res.status(403).send("blocked domain");
-  }
-  const isAllowed = ALLOWED_IMAGE_PATTERNS.some(p => parsed.hostname.includes(p));
-  if (!isAllowed) {
-    return res.status(403).send("domain not allowed");
   }
 
   try {
@@ -826,9 +679,11 @@ app.get("/api/image-proxy", async (req, res) => {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        "Referer": "https://search.naver.com/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-      }
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Referer": "https://www.naver.com/",
+      },
     });
     clearTimeout(timeout);
     if (!response.ok) return res.status(response.status).send("upstream error");
@@ -866,8 +721,7 @@ app.post("/api/reverse-geocode", async (req, res) => {
       }
     } catch (e) { console.error("Kakao reverse geocode error:", e); }
   }
-  const closestSpot = findClosestOfflineHotspot(latNum, lonNum);
-  res.json({ address: closestSpot.address });
+res.json({ address: "위치 정보를 가져오지 못했어요." });
 });
 
 app.get("/api/autocomplete", async (req, res) => {
@@ -936,15 +790,7 @@ app.post("/api/geocode", async (req, res) => {
       }
     } catch (e) { console.error("Kakao keyword geocode error:", e); }
   }
-
-  const offlineMatch = findOfflineGeocode(query);
-  if (offlineMatch) return res.json(offlineMatch);
-
-  let hashVal = 0;
-  for (let i = 0; i < query.length; i++) hashVal = query.charCodeAt(i) + ((hashVal << 5) - hashVal);
-  const latDelta = ((Math.abs(hashVal) % 150) / 1000) - 0.075;
-  const lonDelta = (((Math.abs(hashVal) >> 3) % 150) / 1000) - 0.075;
-  res.json({ lat: parseFloat((37.5500 + latDelta).toFixed(5)), lon: parseFloat((126.9800 + lonDelta).toFixed(5)), address: `${query} (가까운 가상 미식구역)` });
+  return res.status(404).json({ error: "주소를 찾지 못했어요." });
 });
 
 function estimatePriceRange(category: string, menuPreview: string[], mealType: string): string {
@@ -1013,7 +859,7 @@ app.post("/api/recommend", async (req, res) => {
   if (kakaoApiKey && kakaoApiKey !== "your_kakao_rest_api_key_here") {
     try {
       const searchPromises = menuKeywords.map(async (keyword) => {
-        const searchQuery = `${locationPrefix} ${keyword}`;
+        const searchQuery = `${keyword}`; // locationPrefix 제거
         const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&x=${longitude}&y=${latitude}&radius=${radius}&size=10&category_group_code=FD6`;
         const response = await fetch(url, { headers: { Authorization: `KakaoAK ${kakaoApiKey}` } });
         const data: any = await response.json();
@@ -1040,11 +886,12 @@ app.post("/api/recommend", async (req, res) => {
     } catch (e) { console.error("Kakao search error:", e); }
   }
 
-  if (rawNearby.length === 0) {
-    isDemoMode = true;
-    const allMocks = getMockRestaurants(latNum, lonNum, radius, addressText || "");
-    rawNearby = allMocks.filter(r => r.distance_meters <= radius);
-  }
+ if (rawNearby.length === 0) {
+  return res.status(404).json({ 
+    error: "NO_RESTAURANTS_FOUND", 
+    message: "주변에 조건에 맞는 식당을 찾지 못했어요. 반경을 넓히거나 다른 조건으로 시도해보세요." 
+  });
+}
 
   if (rawNearby.length === 0) return res.status(404).json({ error: "NO_RESTAURANTS_FOUND", message: "주변에 조건에 맞는 식당이 없습니다." });
 
@@ -1075,11 +922,29 @@ app.post("/api/recommend", async (req, res) => {
     if (muckBti.fullness >= 4) {
       if (["갈비", "국밥", "고기", "삼겹살"].some(t => rest.category.includes(t))) score += 3;
     }
-    if (muckBti.drink >= 4 && (rest.category.includes("주점") || rest.category.includes("맥주"))) score += 1;
-    score += Math.max(0, (1000 - rest.distance_meters) / 1000);
-    const isBar = rest.category.includes("호프") || rest.category.includes("주점") || rest.category.includes("맥주");
-    if ((detectedMealType === "아침" || detectedMealType === "점심") && isBar) return { rest, score: -999 };
-   if (detectedMealType === "야식") {
+    // 고기 중심 (4~5)
+if (muckBti.meatVeg >= 4) {
+  if (["고기", "삼겹살", "갈비", "소고기", "돼지", "닭", "스테이크", "곱창"].some(t => rest.category.includes(t))) score += 3;
+}
+// 야채 중심 (1~2)
+if (muckBti.meatVeg <= 2) {
+  if (["샐러드", "샤브샤브", "채식", "브런치", "건강", "비빔밥"].some(t => rest.category.includes(t))) score += 3;
+  if (["고기", "삼겹살", "갈비", "소고기", "곱창"].some(t => rest.category.includes(t))) score -= 2;
+}
+
+// 교체
+const isBar = rest.category.includes("호프") || rest.category.includes("주점") || rest.category.includes("맥주") || rest.category.includes("술집");
+
+// 술 선호도 낮으면 주점 완전 제외
+if (muckBti.drink <= 2 && isBar) return { rest, score: -999 };
+
+// 술 선호도 높으면 점수 보너스
+if (muckBti.drink >= 4 && isBar) score += 2;
+
+score += Math.max(0, (1000 - rest.distance_meters) / 1000);
+
+if ((detectedMealType === "아침" || detectedMealType === "점심") && isBar) return { rest, score: -999 };
+if (detectedMealType === "야식") {
   const isDaytimeOnly = rest.category.includes("브런치") || rest.category.includes("카페") || rest.category.includes("샐러드");
   if (isDaytimeOnly) return { rest, score: -999 };
   if (isBar) score += 2;
@@ -1087,7 +952,23 @@ app.post("/api/recommend", async (req, res) => {
     return { rest, score };
   });
 
-  const sortedCandidates = scored.filter(item => item.score > -100).sort((a, b) => b.score - a.score);
+// 동점 구간에 랜덤 셔플 적용 (재검색 시 다른 결과)
+  const requestSeed = Date.now(); // 매 요청마다 다른 시드
+  const validScored = scored.filter(item => item.score > -100);
+  
+  // score 내림차순 정렬 후, 동점 그룹 내에서 랜덤 셔플
+  validScored.sort((a, b) => {
+    const diff = b.score - a.score;
+    if (Math.abs(diff) < 0.5) {
+      // 동점 범위면 랜덤하게 섞음
+      const hashA = (a.rest.name.charCodeAt(0) * requestSeed) % 1000;
+      const hashB = (b.rest.name.charCodeAt(0) * requestSeed) % 1000;
+      return hashA - hashB;
+    }
+    return diff;
+  });
+  
+  const sortedCandidates = validScored;
   const filteredAndSorted: typeof sortedCandidates = [];
   const usedCategories = new Set<string>();
   for (const item of sortedCandidates) {
@@ -1105,138 +986,78 @@ app.post("/api/recommend", async (req, res) => {
     }
   }
 
-  // ★ 타입 수정: menu_guess 포함
-  const naverClientId = process.env.NAVER_CLIENT_ID;
-  const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
-  const naverMatchMap = new Map<string, { rating: number; photo_url: string | null; telephone: string; business_hours: string; menu_guess: string }>();
-  const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
+  // ★ 사진(네이버) + 영업시간/가격(Google) 매칭 로직
+const naverClientId = process.env.NAVER_CLIENT_ID;
+const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
+const naverMatchMap = new Map<string, { rating: number; photo_urls: string[]; hours: string | null; menu_items: string[]; menu_guess: string }>();
+const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
-  if (naverClientId && naverClientSecret) {
-    await Promise.all(
-      topRestaurantsToMatch.map(async (rest) => {
-        try {
-          // 1. 핵심 상호명 추출 (뒤에 붙은 'xx점', 'xx본점', '서울xx점' 등을 완전히 제거)
-          const simplifiedName = rest.name
-            .replace(/\s*([가-힣\w]+)?(점|지점|본점|사옥점|유통점)$/g, "")
-            .trim();
+await Promise.all(
+  topRestaurantsToMatch.map(async (rest) => {
+    let finalPhotoUrls: string[] = [];
+    let finalHours: string | null = null;
+    let finalMenuItems: string[] = [];
 
-          const nameToUse = stripBranchSuffix(rest.name);
-
-          // 행정동/구 추출 (예: "서울 영등포구 문래동" -> "문래동")
-          const addressParts = rest.address.split(" ");
-          const regionWord = extractDistrict(rest.address) || extractDistrict(addressText || "") || "\uC601\uB4F1\uD3EC\uAD6C";
-
-          // 시도해볼 검색어 배열 생성 (정교한 순서대로)
-          const searchQueries = [
-            nameToUse,                                  // 1순위: 깔끔한 핵심 상호명 (예: "혜화동돈까스극장")
-            `${regionWord} ${nameToUse}`.trim(),        // 2순위: 동네이름 + 상호명 (예: "문래동 라이브볼")
-            rest.name                                   // 3순위: 카카오 원본 풀네임 (Fallback)
-          ];
-
-          // 중복 검색어 제거
-          const uniqueQueries = [`${regionWord} ${nameToUse}`.trim()].filter(Boolean);
-
-          let finalLocalData: any = { items: [] };
-          let usedQuery = "";
-
-          // 성공할 때까지 순차적으로 네이버 API 호출
-          for (const query of uniqueQueries) {
-            const localUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=5`;
-            const localRes = await fetch(localUrl, {
-              headers: {
-                "X-Naver-Client-Id": naverClientId,
-                "X-Naver-Client-Secret": naverClientSecret
-              }
-            });
-            const localData: any = await localRes.json();
-            
-            if (localData.items && localData.items.length > 0) {
-              finalLocalData = localData;
-              usedQuery = query;
-              break; // 매칭 성공하면 반복문 탈출!
-            }
-          }
-
-          // Local 매칭 성공 여부 로그
-          if (finalLocalData.items && finalLocalData.items.length > 0) {
-            const matchedItem = finalLocalData.items[0];
-            console.log(`[Naver Local] ${rest.name} 매칭 성공 (사용한 검색어: "${usedQuery}"):`, matchedItem.title);
-          } else {
-            console.log(`[Naver Local] ${rest.name} 매칭 실패, 이미지 검색은 별도 시도`);
-          }
-
-// Local 성공 여부와 무관하게 Image 검색은 항상 시도
-let photoUrl: string | null = null;
-try {
-  const imageQueries = [
-    `${regionWord} ${nameToUse} 음식`,
-    `${regionWord} ${nameToUse} 인스타그램`,
-    `${regionWord} ${nameToUse} 맛집`
-  ];
-  for (const imageQuery of imageQueries) {
-    const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=10&filter=large`;
-    const imageRes = await fetch(imageUrl, {
-      headers: {
-        "X-Naver-Client-Id": naverClientId,
-        "X-Naver-Client-Secret": naverClientSecret
+    try {
+      // 1순위: Google Places → 영업시간 + 가격
+      const googleDetails = await getGooglePlaceDetails(rest.name, rest.address);
+      if (googleDetails) {
+        finalHours = googleDetails.hours;
+        finalMenuItems = googleDetails.menuItems;
       }
-    });
-    const imageData: any = await imageRes.json();
-    const items = imageData.items || [];
-    const instagramItem = items.find((item: any) =>
-      item.link.includes("cdninstagram.com") ||
-      item.link.includes("fbcdn.net") ||
-      item.thumbnail?.includes("cdninstagram.com") ||
-      item.thumbnail?.includes("fbcdn.net")
-    );
-    const naverItem = items.find((item: any) =>
-      item.link.includes("pstatic.net") || item.link.includes("naver.net")
-    );
-    const bestItem = instagramItem || naverItem || items[0];
-    console.log(`[Naver Image] ${rest.name} (${imageQuery}):`, bestItem?.link || "이미지 없음");
-    if (bestItem?.link) {
-      photoUrl = `/api/image-proxy?url=${encodeURIComponent(bestItem.link)}`;
-      break;
-    }
-  }
-} catch (imgErr) {
-  console.error(`Naver Image search failed for ${rest.name}:`, imgErr);
-}
 
-// Local API에서 전화번호 추출
-const localItem = finalLocalData.items?.[0];
-const telephone = localItem?.telephone || "";
-// 카테고리 기반 간략 영업시간 추정 (실제 API 미제공)
-const catStr = (localItem?.category || "").toLowerCase();
-const isBarType = catStr.includes("술") || catStr.includes("호프") || catStr.includes("주점");
-const isCafeType = catStr.includes("카페") || catStr.includes("커피");
-const business_hours = estimateBusinessHours(localItem?.category || rest.category, rest.menu_preview || [], detectedMealType);
-
-// 항상 Map에 저장
-naverMatchMap.set(rest.name, {
-  rating: getDeterministicRating(rest.name),
-  photo_url: photoUrl,
-  telephone,
-  business_hours,
-  menu_guess: localItem?.category?.split(">").pop()?.trim() || ""
-});
-      } catch (e) {
-        console.error(`Naver match failed for ${rest.name}:`, e);
-        naverMatchMap.set(rest.name, {
-          rating: getDeterministicRating(rest.name),
-          photo_url: null,
-          telephone: "",
-          business_hours: estimateBusinessHours(rest.category, rest.menu_preview || [], detectedMealType),
-          menu_guess: ""
+      // 2순위: 네이버 이미지 → 사진
+      if (naverClientId && naverClientSecret) {
+        const imageQuery = rest.name + " 음식";
+        const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=3&filter=large`;
+        const imageRes = await fetch(imageUrl, {
+          headers: {
+            "X-Naver-Client-Id": naverClientId,
+            "X-Naver-Client-Secret": naverClientSecret
+          }
         });
+        const imageData: any = await imageRes.json();
+        if (imageData.items && imageData.items.length > 0) {
+          const photoUrls = imageData.items
+          .slice(0, 3)
+          .map((item: any) => `/api/image-proxy?url=${encodeURIComponent(item.link)}`);
+        finalPhotoUrls = photoUrls;
+        }
       }
-    })
-  );
+
+      // 3순위: 기본 이미지
+     if (finalPhotoUrls.length === 0) {
+  finalPhotoUrls = ["https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80"];
 }
+     naverMatchMap.set(rest.name, {
+  rating: getDeterministicRating(rest.name),
+  photo_urls: finalPhotoUrls,  // photo_urls → photo_urls
+  hours: finalHours,
+  menu_items: finalMenuItems,
+  menu_guess: ""
+});
+
+} catch (e) {
+  console.error(`매칭 실패 (${rest.name}):`, e);
+  naverMatchMap.set(rest.name, {
+    rating: 4.0,
+    photo_urls: ["https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80"],
+    hours: null,
+    menu_items: [],
+    menu_guess: ""
+  });
+}
+  })
+);
   
   let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
     filteredAndSorted.map(({ rest }) => {
-      const categoryLeaf = rest.category.split(" > ").pop() || "";
+                const categoryLeaf = rest.category.split(" > ").pop() || "";
+          const topMenu = rest.menu_preview?.[0] || "";
+          const imageQuery = topMenu
+            ? `${rest.name} ${topMenu}`
+            : `${rest.name} ${categoryLeaf}`;
+
       const realMenus = rest.menu_preview.filter(m => m.length >= 2 && m !== categoryLeaf && !m.includes(">") && !/^[가-힣]{1,2}$/.test(m));
       return {
         name: rest.name,
@@ -1247,9 +1068,9 @@ naverMatchMap.set(rest.name, {
       };
     });
 
-  const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
+    const mergedRestaurants: RecommendedRestaurant[] = curateResults.map((cur) => {
     const original = rawNearby.find(r => r.name === cur.name);
-    const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_url: null, telephone: "", business_hours: "", menu_guess: "" };
+    const naverMatch = naverMatchMap.get(cur.name) || { rating: null, photo_urls: [], hours: null, menu_items: [], menu_guess: "" };
     const finalAddress = cur.address || (original ? original.address : `${addressText || "지정 구역"} 인근`);
     const distM = original ? original.distance_meters : Math.floor(180 + Math.random() * 450);
     const walkMin = Math.max(1, Math.round(distM / 80));
@@ -1259,25 +1080,25 @@ naverMatchMap.set(rest.name, {
     const regionWord = addressWords.find(w => w.endsWith("구") || w.endsWith("동")) || "";
     const queryForMap = regionWord ? `${regionWord} ${cur.name}`.trim() : cur.name;
 
-    return {
-      name: cur.name,
-      recommended_menu: cur.recommended_menu,
-      menu_preview: original?.menu_preview || [],
-      price_range: estimatePriceRange(cur.category, original?.menu_preview || [], detectedMealType),
-      toss_comment: cur.toss_comment,
-      distance_meters: distM,
-      walk_min: walkMin,
-      category: cur.category,
-      address: finalAddress,
-      kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(queryForMap)}`,
-      naver_url: `https://map.naver.com/v5/search/${encodeURIComponent(queryForMap)}`,
-      verified_photo_url: naverMatch.photo_url,
-      telephone: naverMatch.telephone,
-      business_hours: naverMatch.business_hours,
-      menu_guess: naverMatch.menu_guess,
-    };
-  });
+    // 구글에서 가져오는 메뉴 금액 사용 
+    const finalPriceRange = (naverMatch.menu_items || [])[0] || null;
 
+return {
+  name: cur.name,
+  recommended_menu: cur.recommended_menu,
+  menu_preview: original?.menu_preview || [],
+  toss_comment: cur.toss_comment,
+  distance_meters: distM,
+  walk_min: walkMin,
+  category: cur.category,
+  address: finalAddress,
+  kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(queryForMap)}`,
+  naver_url: `https://map.naver.com/v5/search/${encodeURIComponent(queryForMap)}`,
+  verified_photo_urls: naverMatch.photo_urls || [],
+  business_hours: naverMatch.hours,
+};
+  });
+  
   res.json({ restaurants: mergedRestaurants, meal_type: detectedMealType, location_source: req.body.location_source || "gps", address: addressText || "추천 반경 인근" });
 });
 
@@ -1307,7 +1128,7 @@ async function startServer() {
         "gain": "든든한 고단백 헬스형 🍗",
         "sugar": "속 편한 웰빙 건강족 🍵",
       };
-      const spicyName = spicy >= 4 ? "화끈한 매콤 모험가 🌶️" : spicy <= 2 ? "달콤 브런치파 🥞" : "균형잡힌 미식가 🍚";
+      const spicyName = spicy >= 4 ? "화끈한 매콤 모험가 ⚡" : spicy <= 2 ? "달콤 브런치파 🥞" : "균형잡힌 미식가 🍚";
       const charName = characterNames[health] || spicyName;
 
       const ogTitle = `친구의 먹BTI는 [${charName}]!`;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { RecommendedRestaurant } from "../types";
 import { ExternalLink, Footprints, RefreshCw, Compass, ArrowRight, Clock, Wallet } from "lucide-react";
 
@@ -17,6 +17,8 @@ interface RecommendationListProps {
   selectedCategories: string[];
   onToggleCategory: (category: string) => void;
 }
+
+
 
 // ★ 브런치/샐러드 추가, 가로 스크롤로 변경
 const QUICK_CATEGORIES = [
@@ -44,6 +46,8 @@ export default function RecommendationList({
   selectedCategories,
   onToggleCategory
 }: RecommendationListProps) {
+  // 상단에 useState 추가
+const [photoIndexes, setPhotoIndexes] = useState<Record<string, number>>({});
   const hasItems = restaurants && restaurants.length > 0;
   const getRepresentativeMenu = (rest: RecommendedRestaurant) => {
     if (rest.recommended_menu && rest.recommended_menu !== "오늘의 추천 메뉴") {
@@ -124,7 +128,7 @@ export default function RecommendationList({
 
       <div className="flex items-center justify-between px-1">
         <h2 className="text-base font-bold text-gray-850 tracking-tight flex items-center gap-1.5">
-          <Compass className="w-4 h-4 text-[#3182F6]" /> 엄선 맛집 BEST {restaurants.length}
+          <Compass className="w-4 h-4 text-[#3182F6]" /> 오늘의 추천 식당 {restaurants.length}
         </h2>
         <button
           type="button"
@@ -168,51 +172,61 @@ export default function RecommendationList({
               </div>
             </div>
 
-            {/* ★ 사진: verified_photo_url 있을 때만 렌더 + 에러 시 숨김 처리 */}
-            {rest.verified_photo_url && (
-              <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
-                <img
-                  src={rest.verified_photo_url}
-                  alt={rest.name}
-                  id={`photo-${rest.name}`}
-                  referrerPolicy="no-referrer"
-                  crossOrigin="anonymous"
-                  className="w-full h-full object-cover transition-transform hover:scale-105"
-                  onError={(e) => {
-                    // 이미지 로드 실패 시 부모 div 숨김
-                    const parent = (e.target as HTMLImageElement).closest("div");
-                    if (parent) parent.style.display = "none";
-                  }}
-                />
-              </div>
-            )}
+            {/* ★ 사진: verified_photo_urls 있을 때만 렌더 + 에러 시 숨김 처리 */}
+{rest.verified_photo_urls && rest.verified_photo_urls.length > 0 && (() => {
+  const currentIdx = photoIndexes[rest.name] || 0;
+  const currentPhoto = rest.verified_photo_urls[currentIdx];
+  return (
+    <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
+      <img
+        src={currentPhoto}
+        alt={rest.name}
+        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
+        className="w-full h-full object-cover transition-transform hover:scale-105"
+        onError={(e) => {
+          const parent = (e.target as HTMLImageElement).closest("div");
+          if (parent) parent.style.display = "none";
+        }}
+      />
+      {rest.verified_photo_urls.length > 1 && (
+        <div className="absolute bottom-2 right-2 flex gap-1">
+          {rest.verified_photo_urls.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setPhotoIndexes(prev => ({ ...prev, [rest.name]: i }))}
+              className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIdx ? "bg-white scale-125" : "bg-white/50"}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})()}   
 
-            <div className="bg-[#F4F9FF] p-4 rounded-[20px] border border-blue-100/30">
-              {getRepresentativeMenu(rest) && (
-                <div className="flex gap-2 mb-2">
-                  <span className="text-[#3182F6] text-xs font-bold bg-[#e8f3ff] w-5 h-5 rounded-md flex items-center justify-center font-mono shrink-0 select-none">Q</span>
-                  <p className="text-[13px] text-[#333D4B] font-bold leading-normal truncate">
-                    대표 메뉴: <span className="text-[#3182F6] font-extrabold">{getRepresentativeMenu(rest)}</span>
-                  </p>
-                </div>
-              )}
-              {(rest.price_range || rest.business_hours) && (
-                <div className="grid grid-cols-1 gap-1.5 mb-2">
-                  {rest.price_range && (
-                    <div className="flex items-center gap-1.5 text-[12px] text-gray-600 font-semibold">
-                      <Wallet className="w-3.5 h-3.5 text-[#3182F6] shrink-0" />
-                      <span>가격 범위: {rest.price_range}</span>
-                    </div>
-                  )}
-                  {rest.business_hours && (
-                    <div className="flex items-center gap-1.5 text-[12px] text-gray-600 font-semibold">
-                      <Clock className="w-3.5 h-3.5 text-[#3182F6] shrink-0" />
-                      <span>영업시간: {rest.business_hours}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <p className="text-[13px] text-gray-600 leading-relaxed font-normal">
+          <div className="bg-[#F4F9FF] p-4 rounded-[20px] border border-blue-100/30">
+              
+             
+              {/* 2. 영업시간 및 기타 정보 */}
+              <div className="grid grid-cols-1 gap-1.5 mb-2">
+                {(rest.business_hours) && (
+    <div className="grid grid-cols-1 gap-1.5 mb-2">
+      <div className="flex items-center gap-1.5 text-[12px] text-gray-600 font-semibold">
+        <Clock className="w-3.5 h-3.5 text-[#3182F6] shrink-0" />
+        <span>{rest.business_hours}</span>
+      </div>
+    </div>
+  )}
+                {rest.price_range && (
+                  <div className="flex items-center gap-1.5 text-[12px] text-gray-600 font-semibold">
+                    <Wallet className="w-3.5 h-3.5 text-[#3182F6] shrink-0" />
+                    <span>{rest.price_range}</span>
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-[13px] text-gray-600 leading-relaxed font-normal mt-2">
                 {rest.toss_comment}
               </p>
             </div>

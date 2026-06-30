@@ -6,7 +6,6 @@
 import React, { useState, useRef } from "react";
 import { Character, MuckBti } from "../types";
 import { Share2, RotateCcw, Check, ArrowRight, Award, Image as ImageIcon } from "lucide-react";
-import { toPng } from "html-to-image";
 
 interface CharacterCardProps {
   character: Character;
@@ -18,14 +17,12 @@ interface CharacterCardProps {
 
 export default function CharacterCard({ character, mbti, onRestart, onExplore, isSharedView = false }: CharacterCardProps) {
   const [copied, setCopied] = useState<boolean>(false);
-  const [capturing, setCapturing] = useState<boolean>(false);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   const getSharingUrl = () => {
     const params = [
       mbti.spicy,
       mbti.fullness,
-      mbti.salty,
+      mbti.meatVeg,
       mbti.speed,
       mbti.drink,
       mbti.health
@@ -69,51 +66,15 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
     }
   };
 
-  // 캐릭터 카드를 이미지로 캡처해서 공유/다운로드
-  const handleCaptureShare = async () => {
-    if (!cardRef.current) return;
-    setCapturing(true);
-    try {
-      const dataUrl = await toPng(cardRef.current, {
-        backgroundColor: "#ffffff",
-        pixelRatio: 2, // 고해상도 캡처
-        cacheBust: true,  // ← 이거 추가
-      });
 
-      // Web Share API 지원 시 (모바일) - 이미지 직접 공유
-      if (navigator.share && navigator.canShare) {
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], "muck-bti-character.png", { type: "image/png" });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: "나의 먹BTI 캐릭터",
-            text: `나는 [${character.name}]! 너도 확인해봐 👀`,
-          });
-          setCapturing(false);
-          return;
-        }
-      }
+ const axisNames = [
+  { label: "⚡ 자극 강도", val: mbti.spicy, desc: mbti.spicy >= 4 ? "얼큰MSG파" : mbti.spicy <= 2 ? "순딩순한파" : "중간자극" },
+  { label: "🍚 포만감 규모", val: mbti.fullness, desc: mbti.fullness >= 4 ? "두둑배불러" : mbti.fullness <= 2 ? "가벼운식탐" : "적당든든식" },
+  { label: "🥩 고기/야채 비율", val: mbti.meatVeg, desc: mbti.meatVeg >= 4 ? "고기러버" : mbti.meatVeg <= 2 ? "채식지향" : "균형식단" },
+  { label: "⏱️ 식사 속도", val: mbti.speed, desc: mbti.speed >= 4 ? "느긋슬로우" : mbti.speed <= 2 ? "신속스피더" : "적절식사꾼" },
+  { label: "🍻 음주 반주", val: mbti.drink, desc: mbti.drink >= 4 ? "술술애주가" : mbti.drink <= 2 ? "오직밥파" : "한모금취향" },
+];
 
-      // Web Share 미지원 시 - 다운로드
-      const link = document.createElement("a");
-      link.download = `muck-bti-${character.id}.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (err) {
-      console.error("Failed to capture card image:", err);
-    } finally {
-      setCapturing(false);
-    }
-  };
-
-  const axisNames = [
-    { label: "🌶️ 맵기 강도", val: mbti.spicy, desc: mbti.spicy >= 4 ? "얼큰칼칼파" : mbti.spicy <= 2 ? "순딩순한파" : "중간맵지짱" },
-    { label: "🍚 포만감 규모", val: mbti.fullness, desc: mbti.fullness >= 4 ? "두둑배불러" : mbti.fullness <= 2 ? "가벼운식탐" : "적당든든식" },
-    { label: "🧂 짠맛 선호 강도", val: mbti.salty, desc: mbti.salty >= 4 ? "짭짤자극파" : mbti.salty <= 2 ? "슴슴담백파" : "적당짭짤이" },
-    { label: "⏱️ 식사 속도", val: mbti.speed, desc: mbti.speed >= 4 ? "느긋슬로우" : mbti.speed <= 2 ? "신속스피더" : "적절식사꾼" },
-    { label: "🍻 음주 반주", val: mbti.drink, desc: mbti.drink >= 4 ? "술술애주가" : mbti.drink <= 2 ? "오직보리밥" : "한모금취향" }
-  ];
 
   const healthLabels: Record<string, string> = {
     none: "자유식단",
@@ -194,16 +155,7 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
             >
               오늘의 실존 주변맛집 추천받기 <ArrowRight className="w-4.5 h-4.5" />
             </button>
-            <div className="grid grid-cols-3 gap-2.5">
-              <button
-                type="button"
-                id="capture-share-btn"
-                onClick={handleCaptureShare}
-                disabled={capturing}
-                className="py-3 bg-[#3182F6]/10 hover:bg-[#3182F6]/20 text-[#3182F6] font-semibold text-xs rounded-[16px] flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-              >
-                <ImageIcon className="w-3.5 h-3.5" /> {capturing ? "캡처중..." : "이미지 공유"}
-              </button>
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 id="share-mbti-btn"
