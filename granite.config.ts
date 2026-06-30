@@ -14,13 +14,13 @@ web: {
       dev: 'vite --host',
       build: 'vite build',
     },
-    permissions: [
+  },
+  permissions: [
       {
         name: 'geolocation',
         access: 'getCurrentLocation',
       },
     ],
-  },
   permissions: [],
   outdir: 'dist',
   webViewProps: {
