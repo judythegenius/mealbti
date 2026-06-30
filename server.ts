@@ -844,6 +844,25 @@ function estimatePriceRange(category: string, menuPreview: string[], mealType: s
   return "10,000~20,000원";
 }
 
+function getCategoryFallbackImage(category: string, menuPreview: string[]): string | null {
+  const text = `${category} ${menuPreview.join(" ")}`.toLowerCase();
+  const fallbackMap: { pattern: RegExp; url: string }[] = [
+    { pattern: /짬뽕|짜장|마라|탕수육|중식|딤섬|양꼬치/, url: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=800&q=80" },
+    { pattern: /초밥|스시|라멘|돈까스|우동|일식|소바/, url: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800&q=80" },
+    { pattern: /삼겹살|갈비|구이|곱창|막창/, url: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=800&q=80" },
+    { pattern: /국밥|설렁탕|곰탕|순대국|해장국/, url: "https://images.unsplash.com/photo-1583224964978-2257b960c3d3?w=800&q=80" },
+    { pattern: /파스타|피자|스테이크|양식|브런치/, url: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80" },
+    { pattern: /샐러드|포케|건강식/, url: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80" },
+    { pattern: /치킨|버거|피자/, url: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800&q=80" },
+    { pattern: /떡볶이|분식|김밥/, url: "https://images.unsplash.com/photo-1635363638580-c2809d049eee?w=800&q=80" },
+    { pattern: /냉면|쌀국수|베트남/, url: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=800&q=80" },
+  ];
+  for (const item of fallbackMap) {
+    if (item.pattern.test(text)) return item.url;
+  }
+  return null;
+}
+
 function stripBranchSuffix(name: string): string {
   const cleaned = name.replace(/<\/?[^>]+(>|$)/g, "").replace(/\s+/g, " ").trim();
   const withoutTrailingBranch = cleaned.replace(/\s+[^\s]+점$/u, "").trim();
@@ -1035,62 +1054,64 @@ const naverMatchMap = new Map<string, { rating: number; photo_urls: string[]; ho
 const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 
 await Promise.all(
-  topRestaurantsToMatch.map(async (rest) => {
-    let finalPhotoUrls: string[] = [];
-    let finalHours: string | null = null;
-    let finalMenuItems: string[] = [];
+    topRestaurantsToMatch.map(async (rest) => {
+      let finalPhotoUrl: string | null = null;
+      let finalHours = "";
+      let finalMenuItems: string[] = [];
 
-    try {
-      // 1순위: Google Places → 영업시간 + 가격
-      const googleDetails = await getGooglePlaceDetails(rest.name, rest.address);
-      if (googleDetails) {
-        finalHours = googleDetails.hours;
-        finalMenuItems = googleDetails.menuItems;
-      }
-
-      // 2순위: 네이버 이미지 → 사진
-      if (naverClientId && naverClientSecret) {
-        const imageQuery = rest.name + " 음식";
-        const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=3&filter=large`;
-        const imageRes = await fetch(imageUrl, {
-          headers: {
-            "X-Naver-Client-Id": naverClientId,
-            "X-Naver-Client-Secret": naverClientSecret
+      try {
+        if (rest.kakao_url) {
+          const kakaoDetails = await getKakaoPlaceDetails(rest.kakao_url);
+          if (kakaoDetails) {
+            finalHours = kakaoDetails.hours;
+            finalMenuItems = kakaoDetails.menuItems;
+            finalPhotoUrl = kakaoDetails.photoUrl;
           }
-        });
-        const imageData: any = await imageRes.json();
-        if (imageData.items && imageData.items.length > 0) {
-          const photoUrls = imageData.items
-          .slice(0, 3)
-          .map((item: any) => `/api/image-proxy?url=${encodeURIComponent(item.link)}`);
-        finalPhotoUrls = photoUrls;
         }
+
+        if (!finalPhotoUrl && naverClientId && naverClientSecret) {
+          const categoryLeaf = rest.category.split(" > ").pop() || "";
+          const topMenu = rest.menu_preview?.[0] || "";
+          const imageQuery = topMenu ? `${rest.name} ${topMenu}` : `${rest.name} ${categoryLeaf}`;
+          const imageUrl = `https://openapi.naver.com/v1/search/image.json?query=${encodeURIComponent(imageQuery)}&display=3&filter=large`;
+          const imageRes = await fetch(imageUrl, {
+            headers: {
+              "X-Naver-Client-Id": naverClientId,
+              "X-Naver-Client-Secret": naverClientSecret
+            }
+          });
+          const imageData: any = await imageRes.json();
+          if (imageData.items && imageData.items.length > 0) {
+            const safeItem = imageData.items.find((item: any) => item.link.includes("pstatic.net")) || imageData.items[0];
+            finalPhotoUrl = `/api/image-proxy?url=${encodeURIComponent(safeItem.link)}`;
+          }
+        }
+
+        // 매칭 안 되면 카테고리 기반 fallback, 그것도 안 되면 null (사진 숨김)
+        if (!finalPhotoUrl) {
+          finalPhotoUrl = getCategoryFallbackImage(rest.category, rest.menu_preview);
+        }
+
+        naverMatchMap.set(rest.name, {
+          rating: getDeterministicRating(rest.name),
+          photo_url: finalPhotoUrl,
+          hours: finalHours && finalHours.trim().length > 0 ? finalHours : null,
+          menu_items: finalMenuItems,
+          menu_guess: ""
+        });
+
+      } catch (e) {
+        console.error(`매칭 실패 (${rest.name}):`, e);
+        naverMatchMap.set(rest.name, {
+          rating: 4.0,
+          photo_url: getCategoryFallbackImage(rest.category, rest.menu_preview || []),
+          hours: null,
+          menu_items: [],
+          menu_guess: ""
+        });
       }
-
-      // 3순위: 기본 이미지
-     if (finalPhotoUrls.length === 0) {
-  finalPhotoUrls = ["https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80"];
-}
-     naverMatchMap.set(rest.name, {
-  rating: getDeterministicRating(rest.name),
-  photo_urls: finalPhotoUrls,  // photo_urls → photo_urls
-  hours: finalHours,
-  menu_items: finalMenuItems,
-  menu_guess: ""
-});
-
-} catch (e) {
-  console.error(`매칭 실패 (${rest.name}):`, e);
-  naverMatchMap.set(rest.name, {
-    rating: 4.0,
-    photo_urls: ["https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80"],
-    hours: null,
-    menu_items: [],
-    menu_guess: ""
-  });
-}
-  })
-);
+    })
+  );
   
   let curateResults: { name: string; recommended_menu: string; toss_comment: string; category: string; address: string }[] =
     filteredAndSorted.map(({ rest }) => {
@@ -1146,7 +1167,16 @@ return {
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
+    const vite = await createViteServer({
+  server: {
+    middlewareMode: true,
+    hmr: {
+      host: "192.168.0.27",
+      port: 8081,
+    },
+  },
+  appType: "spa",
+});
     app.use(vite.middlewares);
   } else {
   const distPath = path.join(process.cwd(), "dist");

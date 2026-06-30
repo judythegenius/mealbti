@@ -11,6 +11,7 @@ import CharacterCard from "./components/CharacterCard";
 import MyProfile from "./components/MyProfile";
 import RecommendationList from "./components/RecommendationList";
 import { Utensils, Sliders, ChevronDown, AlertCircle, MapPin, Search, X } from "lucide-react";
+import { getCurrentLocation } from '@apps-in-toss/web-framework';
 
 function getSkyBg(): { from: string; label: string } {
   const h = new Date().getHours();
@@ -139,33 +140,47 @@ useEffect(() => {
     } catch { setAddressText("위치 확인 실패"); }
   };
 
-  const requestLocation = () => {
-    if (!gpsEnabled) return;
-    if (!navigator.geolocation) { setGpsStatus("unsupported"); fallbackToIpLocation(); return; }
-    setGpsStatus("requesting");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude; const lon = pos.coords.longitude;
-        setCoordinates({ lat, lon }); setLocationSource("gps"); setGpsStatus("granted");
-        await syncAddress(lat, lon);
-      },
-      async () => {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const lat = pos.coords.latitude; const lon = pos.coords.longitude;
-            setCoordinates({ lat, lon }); setLocationSource("gps"); setGpsStatus("granted");
-            await syncAddress(lat, lon);
-          },
-          async (err) => {
-            setGpsStatus(err.code === err.PERMISSION_DENIED ? "denied" : "timeout");
-            await fallbackToIpLocation();
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
+const requestLocation = async () => {
+  if (!gpsEnabled) return;
+  setGpsStatus("requesting");
+
+  console.log("=== isInToss 체크:", typeof window !== "undefined" ? (window as any).AppsInToss : "window 없음");
+  
+  const isInToss = typeof window !== "undefined" && (window as any).AppsInToss;
+  console.log("=== isInToss 최종값:", isInToss);
+
+  if (isInToss) {
+    try {
+      const location = await getCurrentLocation();
+      const lat = location.coords.latitude;
+      const lon = location.coords.longitude;
+      setCoordinates({ lat, lon });
+      setLocationSource("gps");
+      setGpsStatus("granted");
+      await syncAddress(lat, lon);
+    } catch (err: any) {
+      console.error("토스 위치 정보 가져오기 실패:", err);
+      setGpsStatus("denied");
+      await fallbackToIpLocation();
+    }
+    return;
+  }
+
+  // 일반 브라우저 환경 (기존 로직 유지)
+  if (!navigator.geolocation) { setGpsStatus("unsupported"); fallbackToIpLocation(); return; }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude; const lon = pos.coords.longitude;
+      setCoordinates({ lat, lon }); setLocationSource("gps"); setGpsStatus("granted");
+      await syncAddress(lat, lon);
+    },
+    async (err) => {
+      setGpsStatus(err.code === err.PERMISSION_DENIED ? "denied" : "timeout");
+      await fallbackToIpLocation();
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+};
 
   const fallbackToIpLocation = async () => {
     try {
