@@ -20,6 +20,48 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
+app.get("/terms", (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>먹BTI 서비스 이용약관</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px 20px; color: #333; line-height: 1.7; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    h2 { font-size: 15px; font-weight: 700; margin-top: 28px; }
+    p, li { font-size: 14px; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>먹BTI 서비스 이용약관</h1>
+  <p>시행일: 2026년 6월 30일</p>
+
+  <h2>제1조 (목적)</h2>
+  <p>본 약관은 먹BTI(이하 "서비스")가 제공하는 식당 추천 서비스의 이용 조건 및 절차에 관한 사항을 규정함을 목적으로 합니다.</p>
+
+  <h2>제2조 (서비스 내용)</h2>
+  <p>서비스는 사용자의 식성 성향(먹BTI)을 분석하여 주변 식당을 추천합니다. 추천 결과는 카카오, 네이버, Google Places API를 활용하며 실제 영업 여부와 다를 수 있습니다.</p>
+
+  <h2>제3조 (개인정보 수집)</h2>
+  <p>서비스는 식당 추천을 위해 사용자의 위치 정보(위도/경도)를 일시적으로 수집합니다. 수집된 위치 정보는 서버에 저장되지 않으며 추천 결과 제공 후 즉시 폐기됩니다.</p>
+
+  <h2>제4조 (면책조항)</h2>
+  <ul>
+    <li>추천 식당의 실제 영업시간, 메뉴, 가격은 변경될 수 있습니다.</li>
+    <li>서비스는 외부 API(카카오, 네이버, Google)의 데이터를 기반으로 하며 정확성을 보장하지 않습니다.</li>
+    <li>서비스 이용 중 발생한 손해에 대해 책임을 지지 않습니다.</li>
+  </ul>
+
+  <h2>제5조 (약관 변경)</h2>
+  <p>서비스는 필요 시 약관을 변경할 수 있으며 변경 시 서비스 내 공지합니다.</p>
+
+  <h2>문의</h2>
+  <p>이용약관 관련 문의는 서비스 내 피드백 기능을 통해 접수해 주세요.</p>
+</body>
+</html>`);
+});
 
 const googlePlaceCache = new Map<string, { data: any; ts: number }>();
 const CACHE_TTL = 86400000;
