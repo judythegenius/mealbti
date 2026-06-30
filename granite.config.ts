@@ -8,14 +8,20 @@ export default defineConfig({
     icon: 'https://static.toss.im/appsintoss/47343/5014d435-5a45-4cfc-a259-066c17d50bf5.png',
   },
 web: {
-  host: '192.168.0.27',
-  port: 8081,
-  commands: {
-    dev: 'vite --host',
-    build: 'vite build',
+    host: '192.168.0.27',
+    port: 8081,
+    commands: {
+      dev: 'vite --host',
+      build: 'vite build',
+    },
+    permissions: [
+      {
+        name: 'geolocation',
+        access: 'getCurrentLocation',
+      },
+    ],
   },
-},
- permissions: [],
+  permissions: [],
   outdir: 'dist',
   webViewProps: {
     type: 'partner',

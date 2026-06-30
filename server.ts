@@ -1056,20 +1056,10 @@ const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
 await Promise.all(
     topRestaurantsToMatch.map(async (rest) => {
       let finalPhotoUrl: string | null = null;
-      let finalHours = "";
-      let finalMenuItems: string[] = [];
 
-      try {
-        if (rest.kakao_url) {
-          const kakaoDetails = await getKakaoPlaceDetails(rest.kakao_url);
-          if (kakaoDetails) {
-            finalHours = kakaoDetails.hours;
-            finalMenuItems = kakaoDetails.menuItems;
-            finalPhotoUrl = kakaoDetails.photoUrl;
-          }
-        }
-
-        if (!finalPhotoUrl && naverClientId && naverClientSecret) {
+try {
+        // kakaoPlaceDetails 블록 제거됨
+        if (naverClientId && naverClientSecret) {
           const categoryLeaf = rest.category.split(" > ").pop() || "";
           const topMenu = rest.menu_preview?.[0] || "";
           const imageQuery = topMenu ? `${rest.name} ${topMenu}` : `${rest.name} ${categoryLeaf}`;
@@ -1087,16 +1077,15 @@ await Promise.all(
           }
         }
 
-        // 매칭 안 되면 카테고리 기반 fallback, 그것도 안 되면 null (사진 숨김)
         if (!finalPhotoUrl) {
           finalPhotoUrl = getCategoryFallbackImage(rest.category, rest.menu_preview);
         }
 
         naverMatchMap.set(rest.name, {
           rating: getDeterministicRating(rest.name),
-          photo_url: finalPhotoUrl,
-          hours: finalHours && finalHours.trim().length > 0 ? finalHours : null,
-          menu_items: finalMenuItems,
+          photo_urls: finalPhotoUrl ? [finalPhotoUrl] : [],  // ← 배열로 수정
+          hours: null,  // ← Google/Kakao 없으니 null
+          menu_items: [],
           menu_guess: ""
         });
 
@@ -1104,7 +1093,9 @@ await Promise.all(
         console.error(`매칭 실패 (${rest.name}):`, e);
         naverMatchMap.set(rest.name, {
           rating: 4.0,
-          photo_url: getCategoryFallbackImage(rest.category, rest.menu_preview || []),
+          photo_urls: getCategoryFallbackImage(rest.category, rest.menu_preview || [])
+            ? [getCategoryFallbackImage(rest.category, rest.menu_preview || [])!]
+            : [],
           hours: null,
           menu_items: [],
           menu_guess: ""
