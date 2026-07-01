@@ -13,6 +13,8 @@ import RecommendationList from "./components/RecommendationList";
 import { Utensils, Sliders, ChevronDown, AlertCircle, MapPin, Search, X } from "lucide-react";
 import { getCurrentLocation } from '@apps-in-toss/web-framework';
 
+const API_BASE = import.meta.env.PROD ? "https://mealbti.onrender.com" : "";
+
 function getSkyBg(): { from: string; label: string } {
   const h = new Date().getHours();
   if (h >= 5  && h < 8)  return { from: "from-[#fff95b]/80 via-[#FFB347]/0 to-[#E8F4FD]/0", label: "아침" };
@@ -61,7 +63,7 @@ export default function App() {
     if (searchInput.trim().length < 1) { setSearchSuggestions([]); return; }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(searchInput)}`);
+        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(searchInput)}`);
         const data = await res.json();
         setSearchSuggestions(data.items || []);
       } catch { setSearchSuggestions([]); }
@@ -132,7 +134,7 @@ useEffect(() => {
 
   const syncAddress = async (lat: number, lon: number) => {
     try {
-      const res = await fetch("/api/reverse-geocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: lat, longitude: lon }) });
+      const res = await fetch(`${API_BASE}/api/reverse-geocode`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: lat, longitude: lon }) });
       const data = await res.json();
       const addr = data.address || "위치 확인 중...";
       setAddressText(addr);
@@ -214,7 +216,7 @@ const requestLocation = async () => {
     setSearchSuggestions([]);
     setIsSearchFocused(false);
     try {
-      const res = await fetch("/api/geocode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: searchInput }) });
+      const res = await fetch(`${API_BASE}/api/geocode`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: searchInput }) });
       const data = await res.json();
       if (data.lat && data.lon) {
         setCoordinates({ lat: data.lat, lon: data.lon });
@@ -229,7 +231,7 @@ const requestLocation = async () => {
     if (!coordinates || !mbti) return;
     setIsLoading(true); setApiError(null);
     try {
-      const response = await fetch("/api/recommend", {
+      const response = await fetch(`${API_BASE}/api/recommend`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           muckBti: mbti, latitude: coordinates.lat, longitude: coordinates.lon,

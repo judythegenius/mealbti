@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, MapPin, ChevronDown, Check, Compass, Globe, Search, Loader2 } from "lucide-react";
 
+const API_BASE = import.meta.env.PROD ? "https://mealbti.onrender.com" : "";
+
 interface LocationBannerProps {
   locationSource: "gps" | "ip_estimated" | "manual";
   currentAddress: string;
@@ -47,7 +49,6 @@ export default function LocationBanner({
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [debouncedQuery, setDebouncedQuery] = useState<string>("");
 
-  // Debounce 300ms
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(textQuery);
@@ -66,7 +67,7 @@ export default function LocationBanner({
     const fetchSuggestions = async () => {
       setIsFetchingSuggestions(true);
       try {
-        const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(debouncedQuery)}`);
+        const res = await fetch(`${API_BASE}/api/autocomplete?q=${encodeURIComponent(debouncedQuery)}`);
         const data = await res.json();
         setSuggestions(data.items || []);
         setShowSuggestions(true);

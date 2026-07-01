@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { Restaurant, RecommendedRestaurant, RecommendationResponse, MuckBti } from "./src/types";
+import http from "http";
 
 dotenv.config();
 console.log("KAKAO KEY LOADED:", process.env.KAKAO_REST_API_KEY);
@@ -16,7 +17,7 @@ console.log("NAVER KEY LOADED:", !!process.env.NAVER_CLIENT_ID, !!process.env.NA
 console.log("GEMINI KEY LOADED:", !!process.env.GEMINI_API_KEY); // ← 추가: 키 존재 여부 확인
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8081;
 
 app.use(express.json());
 
@@ -1166,17 +1167,18 @@ return {
 });
 
 async function startServer() {
+  const httpServer = http.createServer(app);
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-  server: {
-    middlewareMode: true,
-    hmr: {
-      host: "192.168.0.27",
-      port: 8081,
-    },
-  },
-  appType: "spa",
-});
+      server: {
+        middlewareMode: true,
+        hmr: {
+          server: httpServer,   // host/port 대신 이렇게
+        },
+      },
+      appType: "spa",
+    });
     app.use(vite.middlewares);
   } else {
   const distPath = path.join(process.cwd(), "dist");
@@ -1224,14 +1226,12 @@ async function startServer() {
     res.send(html);
   });
 }
-}
-startServer()
-  .then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server listening on ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server listening on ${PORT}`);
   });
+}
+
+startServer().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
