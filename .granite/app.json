@@ -1,4 +1,9 @@
 {
   "appName": "mealbti",
-  "permissions": []
+  "permissions": [
+    {
+      "name": "geolocation",
+      "access": "access"
+    }
+  ]
 }

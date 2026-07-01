@@ -698,6 +698,7 @@ app.get("/api/image-proxy", async (req, res) => {
     if (!contentType.startsWith("image/")) return res.status(415).send("not an image");
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*"); 
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (e: any) {
@@ -1017,22 +1018,19 @@ const naverClientId = process.env.NAVER_CLIENT_ID;
 const naverClientSecret = process.env.NAVER_CLIENT_SECRET;
 const naverMatchMap = new Map<string, { rating: number; photo_urls: string[]; hours: string | null; menu_items: string[]; menu_guess: string }>();
 const topRestaurantsToMatch = filteredAndSorted.map(item => item.rest);
-
 await Promise.all(
     topRestaurantsToMatch.map(async (rest) => {
-let finalPhotoUrl: string | null = null;
+let finalPhotoUrls: string[] = [];
 let finalHours = "";
 let finalMenuItems: string[] = [];
 
 try {
-  // 영업시간 → Google
   const googleDetails = await getGooglePlaceDetails(rest.name, rest.address);
   if (googleDetails) {
     finalHours = googleDetails.hours || "";
     finalMenuItems = googleDetails.menuItems || [];
   }
 
-  // 사진 → 네이버
   if (naverClientId && naverClientSecret) {
     const categoryLeaf = rest.category.split(" > ").pop() || "";
     const topMenu = rest.menu_preview?.[0] || "";
@@ -1046,18 +1044,21 @@ try {
     });
     const imageData: any = await imageRes.json();
     if (imageData.items && imageData.items.length > 0) {
-      const safeItem = imageData.items.find((item: any) => item.link.includes("pstatic.net")) || imageData.items[0];
-      finalPhotoUrl = `/api/image-proxy?url=${encodeURIComponent(safeItem.link)}`;
+      const origin = `${req.protocol}://${req.get("host")}`;
+      finalPhotoUrls = imageData.items.slice(0, 3).map((item: any) =>
+        `${origin}/api/image-proxy?url=${encodeURIComponent(item.link)}`
+      );
     }
   }
 
-  if (!finalPhotoUrl) {
-    finalPhotoUrl = getCategoryFallbackImage(rest.category, rest.menu_preview);
+  if (finalPhotoUrls.length === 0) {
+    const fallback = getCategoryFallbackImage(rest.category, rest.menu_preview);
+    if (fallback) finalPhotoUrls = [fallback];
   }
 
   naverMatchMap.set(rest.name, {
     rating: getDeterministicRating(rest.name),
-    photo_urls: finalPhotoUrl ? [finalPhotoUrl] : [],
+    photo_urls: finalPhotoUrls,
     hours: finalHours && finalHours.trim().length > 0 ? finalHours : null,
     menu_items: finalMenuItems,
     menu_guess: ""
@@ -1065,11 +1066,10 @@ try {
 
 } catch (e) {
   console.error(`매칭 실패 (${rest.name}):`, e);
+  const fallback = getCategoryFallbackImage(rest.category, rest.menu_preview || []);
   naverMatchMap.set(rest.name, {
     rating: 4.0,
-    photo_urls: getCategoryFallbackImage(rest.category, rest.menu_preview || [])
-      ? [getCategoryFallbackImage(rest.category, rest.menu_preview || [])!]
-      : [],
+    photo_urls: fallback ? [fallback] : [],
     hours: null,
     menu_items: [],
     menu_guess: ""
@@ -1120,8 +1120,8 @@ return {
   walk_min: walkMin,
   category: cur.category,
   address: finalAddress,
-  kakao_url: `https://map.kakao.com/link/search/${encodeURIComponent(queryForMap)}`,
-  naver_url: `https://map.naver.com/v5/search/${encodeURIComponent(queryForMap)}`,
+  kakao_url: `https://m.map.kakao.com/actions/searchView?q=${encodeURIComponent(queryForMap)}`,
+  naver_url: `https://map.naver.com/p/search/${encodeURIComponent(queryForMap)}`,
   verified_photo_urls: naverMatch.photo_urls || [],
   business_hours: naverMatch.hours,
 };

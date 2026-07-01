@@ -178,17 +178,16 @@ const [photoIndexes, setPhotoIndexes] = useState<Record<string, number>>({});
   const currentPhoto = rest.verified_photo_urls[currentIdx];
   return (
     <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
-      <img
-        src={currentPhoto}
-        alt={rest.name}
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
-        className="w-full h-full object-cover transition-transform hover:scale-105"
-        onError={(e) => {
-          const parent = (e.target as HTMLImageElement).closest("div");
-          if (parent) parent.style.display = "none";
-        }}
-      />
+        <img
+          src={currentPhoto}
+          alt={rest.name}
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-cover transition-transform hover:scale-105"
+          onError={(e) => {
+            const parent = (e.target as HTMLImageElement).closest("div");
+            if (parent) parent.style.display = "none";
+          }}
+        />
       {rest.verified_photo_urls.length > 1 && (
         <div className="absolute bottom-2 right-2 flex gap-1">
           {rest.verified_photo_urls.map((_, i) => (

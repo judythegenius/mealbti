@@ -91,7 +91,7 @@ const nodes: SliderNode[] = [
       try {
         await navigator.share({
           title: "나의 먹BTI",
-          text: `나는 [${character.name}]! 너도 확인해봐 👀`,
+          text: `나의 먹BTI는 [${character.name}]래! 너도 확인해봐 👀`,
           url: shareUrl,
         });
         return; // 공유 성공/취소와 무관하게 여기서 종료

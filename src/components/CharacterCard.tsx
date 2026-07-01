@@ -18,7 +18,7 @@ interface CharacterCardProps {
 export default function CharacterCard({ character, mbti, onRestart, onExplore, isSharedView = false }: CharacterCardProps) {
   const [copied, setCopied] = useState<boolean>(false);
     const cardRef = useRef<HTMLDivElement>(null);
-    
+
   const getSharingUrl = () => {
     const params = [
       mbti.spicy,
@@ -40,7 +40,7 @@ export default function CharacterCard({ character, mbti, onRestart, onExplore, i
       try {
         await navigator.share({
           title: "나의 먹BTI",
-          text: `나는 [${character.name}]! 너도 확인해봐 👀`,
+          text: `나의 먹BTI는 [${character.name}]래! 너도 확인해봐 👀`,
           url: shareUrl,
         });
         return;
