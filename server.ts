@@ -67,6 +67,7 @@ app.get("/terms", (req, res) => {
 });
 
 const googlePlaceCache = new Map<string, { data: any; ts: number }>();
+const naverExistCache = new Map<string, { exists: boolean; ts: number }>();
 const CACHE_TTL = 86400000;
 
 async function getGooglePlaceDetails(name: string, address: string): Promise<{
@@ -172,6 +173,43 @@ function extractNeighborhood(addressText: string): string {
   const guWord = words.find(w => w.endsWith("구"));
   if (guWord) return guWord;
   return words[words.length - 1] || "서울";
+}
+
+async function checkNaverExists(name: string, address: string): Promise<boolean> {
+  const clientId = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return true;
+
+  const dateStr = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" })).toISOString().slice(0, 10);
+  const cacheKey = `${name}_${address}_${dateStr}`;
+  const cached = naverExistCache.get(cacheKey);
+  if (cached) return cached.exists;
+
+  try {
+    const url = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(name)}&display=5`;
+    const res = await fetch(url, {
+      headers: {
+        "X-Naver-Client-Id": clientId,
+        "X-Naver-Client-Secret": clientSecret
+      }
+    });
+    const data: any = await res.json();
+
+    let exists = false;
+    if (data.items && data.items.length > 0) {
+      const cleanTarget = name.replace(/\s/g, "");
+      exists = data.items.some((item: any) => {
+        const cleanTitle = (item.title || "").replace(/<[^>]*>/g, "").replace(/\s/g, "");
+        return cleanTitle.includes(cleanTarget.slice(0, 3)) || cleanTarget.includes(cleanTitle.slice(0, 3));
+      });
+    }
+
+    naverExistCache.set(cacheKey, { exists, ts: Date.now() });
+    return exists;
+  } catch (e) {
+    console.error(`네이버 존재 확인 실패 (${name}):`, e);
+    return true;
+  }
 }
 
 const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
@@ -995,23 +1033,36 @@ if (detectedMealType === "야식") {
     return diff;
   });
   
-  const sortedCandidates = validScored;
-  const filteredAndSorted: typeof sortedCandidates = [];
+const sortedCandidates = validScored;
+  const extendedCandidates: typeof sortedCandidates = [];
   const usedCategories = new Set<string>();
   for (const item of sortedCandidates) {
     const mainCategory = item.rest.category.split(" > ")[0];
-    if (!usedCategories.has(mainCategory) || filteredAndSorted.length === 0) {
-      filteredAndSorted.push(item);
+    if (!usedCategories.has(mainCategory) || extendedCandidates.length === 0) {
+      extendedCandidates.push(item);
       usedCategories.add(mainCategory);
     }
-    if (filteredAndSorted.length === 5) break;
+    if (extendedCandidates.length === 12) break;
   }
-  if (filteredAndSorted.length < 5) {
+  if (extendedCandidates.length < 12) {
     for (const item of sortedCandidates) {
-      if (filteredAndSorted.length === 5) break;
-      if (!filteredAndSorted.includes(item)) filteredAndSorted.push(item);
+      if (extendedCandidates.length === 12) break;
+      if (!extendedCandidates.includes(item)) extendedCandidates.push(item);
     }
   }
+
+  // ★ 네이버에 실제로 검색되는지 확인해서 폐업/미등록 걸러내기
+  const existenceChecks = await Promise.all(
+    extendedCandidates.map(async (item) => ({
+      item,
+      exists: await checkNaverExists(item.rest.name, item.rest.address)
+    }))
+  );
+  const filteredAndSorted = existenceChecks
+    .filter(({ exists }) => exists)
+    .map(({ item }) => item)
+    .slice(0, 5);
+
 
   // ★ 사진(네이버) + 영업시간/가격(Google) 매칭 로직
 const naverClientId = process.env.NAVER_CLIENT_ID;
@@ -1121,7 +1172,8 @@ return {
   category: cur.category,
   address: finalAddress,
   kakao_url: `https://m.map.kakao.com/actions/searchView?q=${encodeURIComponent(queryForMap)}`,
-  naver_url: `https://map.naver.com/p/search/${encodeURIComponent(queryForMap)}`,
+naver_url: `nmap://place?lat=${original?.y || ""}&lng=${original?.x || ""}&name=${encodeURIComponent(cur.name)}&appname=com.mealbti.app`,
+naver_web_url: `https://map.naver.com/p/search/${encodeURIComponent(queryForMap)}`,
   verified_photo_urls: naverMatch.photo_urls || [],
   business_hours: naverMatch.hours,
 };

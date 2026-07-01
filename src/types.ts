@@ -38,6 +38,7 @@ export interface Restaurant {
   menu_preview: string[];
   kakao_url: string;
   naver_url?: string;
+  naver_web_url: string;
   x?: string; // longitude
   y?: string; // latitude
 }
@@ -54,6 +55,7 @@ export interface RecommendedRestaurant {
   address: string;
   kakao_url: string;
   naver_url: string;
+  naver_web_url: string;
   verified_photo_urls?: string[];
 }
 

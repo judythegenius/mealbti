@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { RecommendedRestaurant } from "../types";
-import { ExternalLink, Footprints, RefreshCw, Compass, ArrowRight, Clock, Wallet } from "lucide-react";
+import { ExternalLink, Footprints, RefreshCw, Compass, ArrowRight, Clock, Wallet, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface RecommendationListProps {
   restaurants: RecommendedRestaurant[];
@@ -175,35 +175,79 @@ const [photoIndexes, setPhotoIndexes] = useState<Record<string, number>>({});
             {/* ★ 사진: verified_photo_urls 있을 때만 렌더 + 에러 시 숨김 처리 */}
 {rest.verified_photo_urls && rest.verified_photo_urls.length > 0 && (() => {
   const currentIdx = photoIndexes[rest.name] || 0;
-  const currentPhoto = rest.verified_photo_urls[currentIdx];
-  return (
-    <div className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0">
-        <img
-          src={currentPhoto}
-          alt={rest.name}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover transition-transform hover:scale-105"
-          onError={(e) => {
-            const parent = (e.target as HTMLImageElement).closest("div");
-            if (parent) parent.style.display = "none";
-          }}
-        />
-      {rest.verified_photo_urls.length > 1 && (
-        <div className="absolute bottom-2 right-2 flex gap-1">
-          {rest.verified_photo_urls.map((_, i) => (
+  const photos = rest.verified_photo_urls;
+  const currentPhoto = photos[currentIdx];
+
+  let touchStartX = 0;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) < 30) return; // 너무 짧은 움직임은 무시
+    if (diff > 0) {
+      // 왼쪽으로 스와이프 → 다음 사진
+      setPhotoIndexes(prev => ({ ...prev, [rest.name]: Math.min(currentIdx + 1, photos.length - 1) }));
+    } else {
+      // 오른쪽으로 스와이프 → 이전 사진
+      setPhotoIndexes(prev => ({ ...prev, [rest.name]: Math.max(currentIdx - 1, 0) }));
+    }
+  };
+
+ return (
+    <div
+      className="w-full h-40 bg-gray-50 rounded-2xl overflow-hidden relative border border-gray-100 shrink-0"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <img
+        src={currentPhoto}
+        alt={rest.name}
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          const parent = (e.target as HTMLImageElement).closest("div");
+          if (parent) parent.style.display = "none";
+        }}
+      />
+
+      {photos.length > 1 && (
+        <>
+          {currentIdx > 0 && (
             <button
-              key={i}
               type="button"
-              onClick={() => setPhotoIndexes(prev => ({ ...prev, [rest.name]: i }))}
-              className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentIdx ? "bg-white scale-125" : "bg-white/50"}`}
-            />
-          ))}
-        </div>
+              onClick={() => setPhotoIndexes(prev => ({ ...prev, [rest.name]: currentIdx - 1 }))}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/40 rounded-full flex items-center justify-center"
+            >
+              <ChevronLeft className="w-4 h-4 text-white" />
+            </button>
+          )}
+          {currentIdx < photos.length - 1 && (
+            <button
+              type="button"
+              onClick={() => setPhotoIndexes(prev => ({ ...prev, [rest.name]: currentIdx + 1 }))}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/40 rounded-full flex items-center justify-center"
+            >
+              <ChevronRight className="w-4 h-4 text-white" />
+            </button>
+          )}
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {photos.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all ${i === currentIdx ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
-})()}   
-
+  
+})()}
           <div className="bg-[#F4F9FF] p-4 rounded-[20px] border border-blue-100/30">
               
              
@@ -239,10 +283,20 @@ const [photoIndexes, setPhotoIndexes] = useState<Record<string, number>>({});
                 className="py-3 px-3 bg-[#FCF8E3] hover:bg-[#FBEED5] text-yellow-900 font-bold text-xs rounded-[16px] border border-yellow-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
                 카카오맵 <ExternalLink className="w-3.5 h-3.5" />
               </a>
-              <a href={rest.naver_url} target="_blank" rel="noopener noreferrer"
+              <button type="button"
+                onClick={() => {
+                  const clickedAt = Date.now();
+                  window.location.href = rest.naver_url;
+                  setTimeout(() => {
+                    if (Date.now() - clickedAt < 2000) {
+                      window.open(rest.naver_web_url, "_blank");
+                    }
+                  }, 1500);
+                }}
                 className="py-3 px-3 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-emerald-900 font-bold text-xs rounded-[16px] border border-emerald-200/40 flex items-center justify-center gap-1.5 transition-all text-center select-none">
                 네이버맵 <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+
+              </button>
             </div>
           </div>
         ))}
