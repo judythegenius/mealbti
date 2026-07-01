@@ -7,7 +7,7 @@ export default defineConfig({
     primaryColor: '#3182F6',
     icon: 'https://static.toss.im/appsintoss/47343/5014d435-5a45-4cfc-a259-066c17d50bf5.png',
   },
-web: {
+  web: {
     host: '192.168.0.27',
     port: 8081,
     commands: {
@@ -16,11 +16,11 @@ web: {
     },
   },
   permissions: [
-      {
-        name: 'geolocation',
-        access: 'access',rmsep 
-      },
-    ],
+    {
+      name: 'geolocation',
+      access: 'access',
+    },
+  ],
   outdir: 'dist',
   webViewProps: {
     type: 'partner',
