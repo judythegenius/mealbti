@@ -17,7 +17,8 @@ interface CharacterCardProps {
 
 export default function CharacterCard({ character, mbti, onRestart, onExplore, isSharedView = false }: CharacterCardProps) {
   const [copied, setCopied] = useState<boolean>(false);
-
+    const cardRef = useRef<HTMLDivElement>(null);
+    
   const getSharingUrl = () => {
     const params = [
       mbti.spicy,

@@ -5,7 +5,7 @@
 
 import { Character, MuckBti } from "./types";
 
-// coordinates 순서: [spicy, fullness, salty, speed, drink]
+// coordinates 순서: [spicy, fullness, meatVeg, speed, drink]
 export const characters: Character[] = [
   {
     id: "comfort_walker",
@@ -33,9 +33,9 @@ export const characters: Character[] = [
   },
   {
     id: "spicy_enthusiast",
-    name: "화끈한 매콤 모험가",
+    name: "화끈한 자극 탐험가",
     emoji: "⚡",
-    description: "강렬하고 얼큰한 매운맛이 없으면 못 견디는 매콤 마니아! 칼칼함이 곧 행복입니다.",
+    description: "강렬하고 얼큰한 매운맛이 없으면 못 견디는 자극 마니아! 얼큰함과 짜릿함이 곧 행복입니다.",
     coordinates: [5, 3, 3, 3, 1],
     preferredHealth: "none"
   },
@@ -51,7 +51,7 @@ export const characters: Character[] = [
     id: "frugal_efficiency",
     name: "가성비 추구 실속형",
     emoji: "🪙",
-    description: "맛과 양을 모두 알뜰히 챙기는 현명한 실속파. 적당한 짠맛의 든든한 한 상을 합리적으로 즐깁니다.",
+    description: "맛과 양을 모두 알뜰히 챙기는 현명한 실속파. 부담 없는 균형 잡힌 한 상을 합리적으로 즐깁니다.",
     coordinates: [3, 4, 3, 2, 1],
     preferredHealth: "none"
   },
@@ -91,7 +91,7 @@ export const characters: Character[] = [
     id: "spicy_solitude",
     name: "화끈하게 푸는 혼밥러",
     emoji: "🍲",
-    description: "혼자만의 시간, 매콤하고 짭짤한 한 그릇으로 스트레스를 화끈하게 풀어내는 힐러입니다.",
+    description: "혼자만의 시간, 자극적이고 고기가 듬뿍 들어간 한 그릇으로 스트레스를 화끈하게 풀어내는 힐러입니다.",
     coordinates: [4, 4, 4, 2, 1],
     preferredHealth: "none"
   },
@@ -107,7 +107,7 @@ export const characters: Character[] = [
     id: "premium_palate",
     name: "정갈한 미각 큐레이터",
     emoji: "🍣",
-    description: "자극적이지 않은 깔끔한 짠맛과 정갈한 플레이팅을 음미하며 디테일을 따지는 섬세한 미식가입니다.",
+    description: "자극적이지 않고 채소 중심의 정갈한 플레이팅을 음미하며 디테일을 따지는 섬세한 미식가입니다.",
     coordinates: [2, 3, 2, 4, 2],
     preferredHealth: "sugar"
   },
@@ -127,14 +127,14 @@ export const characters: Character[] = [
     coordinates: [1, 2, 1, 4, 1],
     preferredHealth: "loss"
   },
-  {
-    id: "salty_drinker",
-    name: "짭짤한 술상 마니아",
-    emoji: "🦑",
-    description: "젓갈, 장조림처럼 짭짤하고 자극적인 안주에 술 한 잔을 곁들이는 걸 가장 좋아하는 짠맛 애호가입니다.",
-    coordinates: [3, 3, 5, 3, 5],
-    preferredHealth: "none"
-  }
+{
+  id: "salty_drinker",
+  name: "고기 안주 애주가",
+  emoji: "🍖",
+  description: "곱창, 삼겹살, 막창처럼 고기 중심의 든든한 안주에 술 한 잔을 곁들이는 걸 가장 좋아하는 육식 애주가입니다.",
+  coordinates: [3, 3, 5, 3, 5],
+  preferredHealth: "none"
+}
 ];
 
 export function getMatchedCharacter(muckBti: MuckBti): Character {
@@ -142,7 +142,7 @@ export function getMatchedCharacter(muckBti: MuckBti): Character {
   let minDistance = Infinity;
 
   for (const char of characters) {
-    const userCoords = [muckBti.spicy, muckBti.fullness, muckBti.salty, muckBti.speed, muckBti.drink];
+    const userCoords = [muckBti.spicy, muckBti.fullness, muckBti.meatVeg, muckBti.speed, muckBti.drink];
     let sumOfSquares = 0;
 
     for (let i = 0; i < 5; i++) {

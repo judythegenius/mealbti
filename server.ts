@@ -10,6 +10,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { Restaurant, RecommendedRestaurant, RecommendationResponse, MuckBti } from "./src/types";
 import http from "http";
+import cors from "cors";
 
 dotenv.config();
 console.log("KAKAO KEY LOADED:", process.env.KAKAO_REST_API_KEY);
@@ -19,6 +20,7 @@ console.log("GEMINI KEY LOADED:", !!process.env.GEMINI_API_KEY); // ← 추가: 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 8081;
 
+app.use(cors());
 app.use(express.json());
 
 app.get("/terms", (req, res) => {
@@ -188,47 +190,33 @@ const CATEGORY_KEYWORD_MAP: Record<string, string[]> = {
 };
 
 // server.ts 안의 getMenuKeywordsFromMBTI 함수 전체를 아래로 교체
-
 function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
-  const { spicy, fullness, salty, speed, drink, health } = mbti;
+  const { spicy, fullness, meatVeg, speed, drink, health } = mbti;
 
-  // ── 점수 구간 헬퍼 ──────────────────────────────────────────────
   const isHigh = (v: number) => v >= 4;
   const isLow  = (v: number) => v <= 2;
   const isMid  = (v: number) => v === 3;
-  const score  = (v: number) => v; // 명시적 참조용
+  const score  = (v: number) => v;
 
-  // ── 메뉴 풀 정의 ────────────────────────────────────────────────
   const POOL = {
-    // 매운맛
     spicyHigh:   ["마라탕", "마라샹궈", "불닭볶음면", "낙지볶음", "쭈꾸미볶음", "매운갈비찜", "닭발볶음", "순대볶음", "떡볶이", "탄탄면", "양꼬치", "짬뽕", "불닭", "매운해물탕", "오돌뼈볶음", "꼼장어볶음"],
     spicyMid:    ["제육볶음", "김치찌개", "부대찌개", "찜닭", "순대국", "육개장", "닭볶음탕", "감자탕", "뼈해장국", "오징어볶음", "낙지덮밥", "비빔냉면"],
     spicyLow:    ["칼국수", "설렁탕", "곰탕", "돈까스", "카츠", "초밥", "우동", "소바", "오므라이스", "함박스테이크", "크림파스타", "냉면", "백반", "연어덮밥", "샤브샤브"],
 
-    // 포만감
     fullnessHigh: ["국밥", "감자탕", "뼈해장국", "한정식", "돼지국밥", "쌈밥", "육개장", "설렁탕", "갈비탕", "찜닭", "보쌈", "대구탕", "삼겹살", "항정살", "갈비구이", "순대국"],
     fullnessMid:  ["비빔밥", "제육볶음", "돈까스", "불고기", "우동", "냉면", "파스타", "초밥", "라멘", "볶음밥", "덮밥", "쌀국수"],
     fullnessLow:  ["샐러드", "포케", "유부초밥", "김밥", "샌드위치", "브런치", "토스트", "카페밥", "롤", "아보카도토스트", "월남쌈", "라이스페이퍼롤", "소바"],
 
-    // 짠맛
-    saltyHigh:   ["간장게장", "양념게장", "보쌈", "족발", "갈치조림", "고등어구이", "된장찌개", "순대국", "김치찌개", "굴전", "파전", "젓갈비빔밥", "멍게비빔밥", "문어숙회", "낙지볶음"],
-    saltyMid:    ["삼겹살", "제육볶음", "불고기", "갈비", "치킨", "짜장면", "비빔밥", "냉면", "라멘", "파스타"],
-    saltyLow:    ["샤브샤브", "백숙", "맑은탕", "두부찌개", "닭곰탕", "해물샤브", "월남쌈", "소바", "냉면", "연어", "포케", "쌀국수", "아보카도"],
-
-    // 속도 (1=빠름, 5=느긋)
     speedFast:   ["김밥", "라멘", "분식", "국수", "우동", "돈부리", "제육덮밥", "순대국", "떡볶이", "편의점도시락", "핫도그", "치킨", "버거"],
     speedSlow:   ["오마카세", "코스요리", "파인다이닝", "이탈리안", "프렌치", "스시오마카세", "한정식", "와인바", "샤브샤브", "브런치카페", "이자카야", "철판요리"],
 
-    // 음주
     drinkHigh:   ["파전", "해물파전", "보쌈", "족발", "치킨", "이자카야", "포차", "수육", "곱창", "막창", "삼겹살", "오돌뼈", "닭발", "간장게장", "회", "문어숙회"],
     drinkLow:    ["비빔밥", "국수", "샐러드", "포케", "브런치", "라멘", "우동", "냉면", "쌀국수", "덮밥", "샌드위치"],
 
-    // 건강 목표별
     healthLoss:  ["샐러드", "포케", "두부", "샤브샤브", "연어덮밥", "훈제연어", "월남쌈", "채식뷔페", "나물정식", "비빔밥", "쌈밥", "쌀국수", "닭가슴살도시락", "그릭요거트볼"],
     healthGain:  ["소고기", "장어", "삼계탕", "스테이크", "닭갈비", "훠궈", "육회", "갈비탕", "닭볶음탕", "삼겹살", "제육볶음", "곱창", "오리구이", "단백질도시락", "항정살"],
     healthSugar: ["현미밥", "두부", "나물", "채소", "한정식", "사찰음식", "죽", "된장국", "샐러드", "해산물", "맑은국", "쌈밥", "생선구이", "두부조림", "나물비빔밥"],
 
-    // 특수 카테고리
     korean:      ["한식", "비빔밥", "제육볶음", "김치찌개", "된장찌개", "불고기", "국밥", "갈비", "냉면", "쌈밥"],
     japanese:    ["일식", "초밥", "라멘", "우동", "돈까스", "카츠", "연어덮밥", "오마카세", "야키토리", "텐동"],
     chinese:     ["중식", "짜장면", "짬뽕", "탕수육", "볶음밥", "마파두부", "깐풍기", "마라탕", "양꼬치", "딤섬"],
@@ -238,12 +226,8 @@ function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
     lightMeal:   ["브런치", "샐러드", "포케", "연어", "아보카도토스트", "크로플", "카페밥", "스무디볼", "그래놀라"],
   };
 
-  // ── 배열 합치기 + 중복 제거 헬퍼 ───────────────────────────────
-  const merge = (...arrays: string[][]): string[] =>
-    Array.from(new Set(arrays.flat()));
+  const merge = (...arrays: string[][]): string[] => Array.from(new Set(arrays.flat()));
 
-  // ── 가중치 기반 선택 헬퍼 ───────────────────────────────────────
-  // 높은 점수 축이 메뉴를 더 많이 기여하도록
   const weightedMerge = (entries: [string[], number][]): string[] => {
     const result: string[] = [];
     for (const [arr, weight] of entries) {
@@ -253,38 +237,38 @@ function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
     return Array.from(new Set(result));
   };
 
-  // ── 1. 건강 목표 최우선 ──────────────────────────────────────────
+  // ── 1. 건강 목표 최우선 ──────────────────────────────
   if (health === "loss") {
     if (isHigh(spicy)) return merge(POOL.healthLoss, POOL.spicyMid.slice(0, 4));
     if (isHigh(drink)) return merge(POOL.healthLoss, ["파전", "월남쌈", "해물샤브"]);
-    return merge(POOL.healthLoss, POOL.saltyLow.slice(0, 5));
+    return merge(POOL.healthLoss, POOL.lightMeal.slice(0, 5));
   }
-
   if (health === "gain") {
     if (isHigh(spicy)) return merge(POOL.healthGain, POOL.spicyMid.slice(0, 5));
     if (isHigh(drink)) return merge(POOL.healthGain, ["삼겹살", "곱창", "막창", "수육"]);
     return POOL.healthGain;
   }
-
   if (health === "sugar") {
     if (isLow(spicy)) return merge(POOL.healthSugar, ["두부조림", "나물비빔밥", "맑은탕"]);
     return POOL.healthSugar;
   }
 
-  // ── 2. 음주 극단 (drink 5) ───────────────────────────────────────
+  // ── 2. 음주 극단 (drink 5) ─────────────────────────
   if (score(drink) === 5) {
-    if (isHigh(spicy) && isHigh(salty))
+    if (isHigh(spicy) && isHigh(meatVeg))
       return merge(["닭발", "곱창", "낙지볶음", "막창", "오돌뼈", "순대볶음"], POOL.drinkHigh.slice(0, 6));
     if (isHigh(spicy))
       return merge(["닭발", "곱창", "낙지볶음", "막창", "쭈꾸미볶음"], POOL.drinkHigh);
     if (isHigh(fullness))
       return merge(["삼겹살", "소갈비", "보쌈", "족발", "수육", "해물탕"], POOL.drinkHigh);
-    if (isHigh(salty))
-      return merge(["간장게장", "파전", "굴전", "회", "문어숙회", "멍게"], POOL.drinkHigh);
+    if (isHigh(meatVeg))
+      return merge(POOL.grillMeat, POOL.drinkHigh.slice(0, 6));
+    if (isLow(meatVeg))
+      return merge(["회", "문어숙회", "멍게", "굴전"], POOL.drinkHigh.slice(0, 5));
     return POOL.drinkHigh;
   }
 
-  // ── 3. 음주 높음 (drink 4) ───────────────────────────────────────
+  // ── 3. 음주 높음 (drink 4) ─────────────────────────
   if (score(drink) === 4) {
     if (isHigh(spicy))
       return merge(["닭발", "낙지볶음", "쭈꾸미", "오돌뼈", "순대볶음"], POOL.drinkHigh.slice(0, 8));
@@ -292,131 +276,111 @@ function getMenuKeywordsFromMBTI(mbti: MuckBti): string[] {
       return merge(["삼겹살", "항정살", "갈비", "보쌈"], POOL.drinkHigh.slice(0, 8));
     if (isLow(spicy))
       return merge(["이자카야", "파전", "보쌈", "회", "초밥"], POOL.drinkHigh.slice(0, 6));
-    return merge(POOL.drinkHigh, POOL.saltyMid.slice(0, 4));
+    return merge(POOL.drinkHigh, POOL.fullnessMid.slice(0, 4));
   }
 
-  // ── 4. 매운맛 극단 ──────────────────────────────────────────────
+  // ── 4. 매운맛(자극) 극단 ────────────────────────────
   if (score(spicy) === 5) {
     return weightedMerge([
       [POOL.spicyHigh, 8],
       [isHigh(fullness) ? POOL.fullnessHigh : POOL.fullnessMid, 4],
-      [isHigh(salty) ? POOL.saltyHigh : [], 3],
+      [isHigh(meatVeg) ? POOL.grillMeat : [], 3],
     ]);
   }
-
   if (score(spicy) === 4) {
-    if (isHigh(fullness) && isHigh(salty))
-      return merge(POOL.spicyHigh.slice(0, 6), ["순대국", "감자탕", "김치찌개", "된장찌개", "갈치조림"]);
+    if (isHigh(fullness) && isHigh(meatVeg))
+      return merge(POOL.spicyHigh.slice(0, 6), POOL.grillMeat.slice(0, 5));
     if (isHigh(fullness))
       return merge(POOL.spicyMid, POOL.spicyHigh.slice(0, 5));
-    if (isHigh(salty))
-      return merge(["짬뽕", "마라탕", "낙지볶음", "김치찌개", "갈치조림", "고등어조림"], POOL.spicyHigh.slice(0, 5));
+    if (isHigh(meatVeg))
+      return merge(["짬뽕", "마라탕", "낙지볶음", "제육볶음", "닭볶음탕"], POOL.spicyHigh.slice(0, 5));
     return merge(POOL.spicyHigh.slice(0, 10), POOL.spicyMid.slice(0, 5));
   }
 
-  // ── 5. 순한맛 극단 ──────────────────────────────────────────────
+  // ── 5. 순한맛 극단 ──────────────────────────────────
   if (score(spicy) === 1) {
-    if (isLow(fullness) && isLow(salty))
+    if (isLow(fullness) && isLow(meatVeg))
       return merge(["포케", "샐러드", "아보카도토스트", "소바", "유부초밥", "연어덮밥", "브런치"], POOL.spicyLow.slice(0, 5));
     if (isHigh(fullness))
       return merge(["설렁탕", "곰탕", "백반", "한정식", "돈까스", "함박스테이크", "우동", "칼국수"], POOL.spicyLow);
-    if (isHigh(speed)) // 느긋
+    if (isHigh(speed))
       return merge(["오마카세", "프렌치", "이탈리안", "한정식", "파인다이닝", "브런치카페"], POOL.spicyLow);
     return POOL.spicyLow;
   }
-
   if (score(spicy) === 2) {
     if (isHigh(fullness))
       return merge(["설렁탕", "곰탕", "갈비탕", "백반", "한정식", "돈까스", "우동", "칼국수"], POOL.spicyLow.slice(0, 6));
     if (isHigh(drink))
       return merge(["초밥", "이자카야", "파전", "보쌈", "냉면", "파스타"], POOL.spicyLow.slice(0, 6));
-    return merge(POOL.spicyLow, POOL.saltyLow.slice(0, 4));
+    return merge(POOL.spicyLow, POOL.lightMeal.slice(0, 4));
   }
 
-  // ── 6. 포만감 극단 ──────────────────────────────────────────────
+  // ── 6. 포만감 극단 ──────────────────────────────────
   if (score(fullness) === 5) {
     if (isMid(spicy) || isHigh(spicy))
       return merge(["감자탕", "순대국", "찜닭", "매운갈비찜", "육개장", "국밥", "뼈해장국", "부대찌개"], POOL.fullnessHigh);
     return POOL.fullnessHigh;
   }
-
   if (score(fullness) === 4) {
     if (isMid(spicy))
       return merge(["찜닭", "제육볶음", "김치찌개", "부대찌개", "순대국", "갈비탕"], POOL.fullnessMid);
     return merge(POOL.fullnessHigh.slice(0, 8), POOL.fullnessMid.slice(0, 5));
   }
-
   if (score(fullness) === 1) {
     if (isLow(spicy))
       return merge(["포케", "샐러드", "브런치", "아보카도토스트", "유부초밥", "연어덮밥", "소바"], POOL.fullnessLow);
     return POOL.fullnessLow;
   }
-
   if (score(fullness) === 2) {
-    if (isLow(speed)) // 빠름
+    if (isLow(speed))
       return merge(["김밥", "편의점도시락", "국수", "라멘", "우동", "돈부리", "덮밥"], POOL.fullnessLow);
     return merge(POOL.fullnessLow, POOL.lightMeal.slice(0, 5));
   }
 
-  // ── 7. 짠맛 극단 ────────────────────────────────────────────────
-  if (score(salty) === 5) {
+  // ── 7. 고기/야채 극단 (신규) ──────────────────────────
+  if (score(meatVeg) === 5) {
     if (isHigh(drink))
-      return merge(["간장게장", "양념게장", "굴전", "파전", "멍게", "성게비빔밥", "문어숙회", "회"], POOL.saltyHigh);
-    return POOL.saltyHigh;
+      return merge(POOL.grillMeat, POOL.drinkHigh.slice(0, 6));
+    return merge(POOL.grillMeat, POOL.healthGain.slice(0, 4));
   }
-
-  if (score(salty) === 4) {
+  if (score(meatVeg) === 4) {
     if (isHigh(spicy))
-      return merge(["김치찌개", "된장찌개", "순대국", "갈치조림", "짬뽕", "낙지볶음", "고등어조림"], POOL.saltyHigh.slice(0, 6));
-    return merge(POOL.saltyHigh.slice(0, 8), POOL.saltyMid.slice(0, 4));
+      return merge(["제육볶음", "닭볶음탕", "낙지볶음"], POOL.grillMeat.slice(0, 6));
+    return merge(POOL.grillMeat.slice(0, 8), POOL.fullnessMid.slice(0, 4));
   }
-
-  if (score(salty) === 1) {
+  if (score(meatVeg) === 1) {
     if (isHigh(fullness))
-      return merge(["샤브샤브", "백숙", "맑은탕", "두부찌개", "닭곰탕", "해물샤브"], POOL.saltyLow);
-    return POOL.saltyLow;
+      return merge(["한정식", "나물비빔밥", "사찰음식", "쌈밥"], POOL.lightMeal);
+    return POOL.lightMeal;
+  }
+  if (score(meatVeg) === 2) {
+    return merge(POOL.lightMeal, ["비빔밥", "월남쌈", "소바", "냉면"]);
   }
 
-  if (score(salty) === 2) {
-    return merge(POOL.saltyLow, ["닭백숙", "두부조림", "버섯전골", "맑은조개탕"]);
-  }
-
-  // ── 8. 속도 극단 (1=빠름, 5=느긋) ──────────────────────────────
+  // ── 8. 속도 극단 (1=빠름, 5=느긋) ────────────────────
   if (score(speed) === 5) {
     if (isLow(spicy))
       return merge(["오마카세", "코스요리", "파인다이닝", "프렌치", "이탈리안", "스시오마카세", "한정식", "와인바"], POOL.speedSlow);
     return merge(POOL.speedSlow, ["한정식", "이자카야", "철판요리", "샤브샤브"]);
   }
-
   if (score(speed) === 4) {
     if (isHigh(drink))
       return merge(["이자카야", "브런치카페", "한정식", "와인바"], POOL.speedSlow.slice(0, 6));
     return merge(["브런치", "한정식", "이탈리안", "샤브샤브", "초밥", "파스타"], POOL.speedSlow.slice(0, 5));
   }
-
   if (score(speed) === 1) {
     if (isHigh(fullness))
       return merge(["순대국", "국밥", "라멘", "우동", "돈부리", "제육덮밥", "분식"], POOL.speedFast);
     return POOL.speedFast;
   }
-
   if (score(speed) === 2) {
     return merge(POOL.speedFast, ["치킨", "버거", "피자", "떡볶이", "순대"]);
   }
 
-  // ── 9. 중간값(3) 올중간 - 성향 합산으로 7가지 카테고리 분기 ─────
-  const sum = spicy + fullness + salty + speed + drink;
-  const categories = [
-    POOL.korean,
-    POOL.japanese,
-    POOL.chinese,
-    POOL.western,
-    POOL.asian,
-    POOL.grillMeat,
-    POOL.lightMeal,
-  ];
-
-  // sum이 같더라도 개별 값 조합으로 추가 분기
+  // ── 9. 중간값(3) 폴백 - 성향 합산으로 카테고리 분기 ──
+  const safe = (v: number | undefined) => (typeof v === "number" ? v : 3);
+  const sum = safe(spicy) + safe(fullness) + safe(meatVeg) + safe(speed) + safe(drink);
+  const categories = [POOL.korean, POOL.japanese, POOL.chinese, POOL.western, POOL.asian, POOL.grillMeat, POOL.lightMeal];
   const subBias = (spicy * 2 + drink + fullness) % 3;
   const primary = categories[sum % categories.length];
   const secondary = categories[(sum + subBias + 1) % categories.length];
@@ -655,7 +619,7 @@ function generateDynamicComment(
     ];
     return pool[seed % pool.length];
   }
-  if (mbti.spicy <= 2 && mbti.salty <= 2) {
+  if (mbti.spicy <= 2 && mbti.meatVeg <= 2) {
     const pool = [
       `자극 없이 재료 본연의 맛을 살린 ${name}, 오늘 속이 편해질 거예요`,
       `순하고 담백한 ${menuLabel}, ${name}에서 부담 없이 즐겨보세요`,

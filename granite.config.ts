@@ -18,10 +18,9 @@ web: {
   permissions: [
       {
         name: 'geolocation',
-        access: 'getCurrentLocation',
+        access: 'access',rmsep 
       },
     ],
-  permissions: [],
   outdir: 'dist',
   webViewProps: {
     type: 'partner',

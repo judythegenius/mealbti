@@ -58,6 +58,12 @@ export default function App() {
   const [addressText, setAddressText] = useState<string>("위치 확인 중...");
   const [gpsStatus, setGpsStatus] = useState<"not_requested" | "requesting" | "granted" | "denied" | "timeout" | "unsupported">("not_requested");
 
+  useEffect(() => {
+  window.onerror = (msg, url, line, col, error) => {
+    alert(`에러 발생: ${msg}\n위치: ${line}:${col}`);
+  };
+}, []);
+
   // 자동완성
   useEffect(() => {
     if (searchInput.trim().length < 1) { setSearchSuggestions([]); return; }
@@ -99,11 +105,11 @@ export default function App() {
     if (mbtiParam) {
       const parts = mbtiParam.split(",");
       if (parts.length >= 5) {
-        const loadedMbti: MuckBti = {
-          spicy: parseInt(parts[0]) || 3, fullness: parseInt(parts[1]) || 3,
-          salty: parseInt(parts[2]) || 3, speed: parseInt(parts[3]) || 3,
-          drink: parseInt(parts[4]) || 3, health: (parts[5] as MuckBti["health"]) || "none",
-        };
+          const loadedMbti: MuckBti = {
+            spicy: parseInt(parts[0]) || 3, fullness: parseInt(parts[1]) || 3,
+            meatVeg: parseInt(parts[2]) || 3, speed: parseInt(parts[3]) || 3,
+            drink: parseInt(parts[4]) || 3, health: (parts[5] as MuckBti["health"]) || "none",
+          };
         setSharedMbti(loadedMbti); setTab("sharedResult"); return;
       }
     }
@@ -111,7 +117,7 @@ export default function App() {
     if (saved) {
       try {
         const p = JSON.parse(saved);
-        setMbti({ spicy: p.spicy??3, fullness: p.fullness??3, salty: p.salty??3, speed: p.speed??3, drink: p.drink??3, health: p.health??"none" });
+        setMbti({ spicy: p.spicy??3, fullness: p.fullness??3, meatVeg: p.meatVeg??3, speed: p.speed??3, drink: p.drink??3, health: p.health??"none" });
         setTab("recommend");
       } catch { setTab("test"); }
     } else { setTab("test"); }
